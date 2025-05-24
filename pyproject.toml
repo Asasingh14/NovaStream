@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "novastream"
+version = "1.0.0"
+description = "HLS series downloader"
+readme = "README.md"
+requires-python = ">=3.7"
+license = { text = "MIT" }
+authors = [ { name = "Asa" } ]
+dependencies = [
+    "selenium-wire",
+    "selenium",
+    "webdriver-manager",
+    "requests",
+    "beautifulsoup4",
+    "tqdm",
+    "art",
+    "colorama",
+    "urlgrabber",
+    "blinker"
+]
+
+[project.scripts]
+novastream = "src.gui:main"
+
+[tool.setuptools.package-data]
+"src" = ["icon.png"] 

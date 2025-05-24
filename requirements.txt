@@ -1,0 +1,11 @@
+blinker<1.5
+selenium-wire
+selenium
+webdriver-manager
+requests
+beautifulsoup4
+tqdm
+art
+colorama
+urlgrabber
+pytest

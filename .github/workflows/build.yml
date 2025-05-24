@@ -1,0 +1,90 @@
+name: Build Standalone Binaries
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install UPX
+        run: brew install upx || true
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller
+      - name: Build macOS binary
+        run: |
+          pyinstaller --clean --strip --windowed --onefile --name novastream \
+            --exclude-module seleniumwire \
+            --exclude-module selenium \
+            --exclude-module webdriver_manager \
+            --add-data "src/icon.png:src" \
+            src/gui.py
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: novastream-macos
+          path: dist/novastream
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install UPX
+        run: choco install upx -y || exit 0
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller
+      - name: Build Windows binary
+        shell: cmd
+        run: |
+          pyinstaller --clean --strip --windowed --onefile --name novastream.exe ^
+            --exclude-module seleniumwire ^
+            --exclude-module selenium ^
+            --exclude-module webdriver_manager ^
+            --add-data "src\\icon.png;src" ^
+            src\\gui.py
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: novastream-windows
+          path: dist/novastream.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libgl1-mesa-dev libglib2.0-dev upx-ucl
+          pip install pyinstaller
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Build Linux binary
+        run: |
+          pyinstaller --clean --strip --windowed --onefile --name novastream \
+            --exclude-module seleniumwire \
+            --exclude-module selenium \
+            --exclude-module webdriver_manager \
+            --add-data "src/icon.png:src" \
+            src/gui.py
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: novastream-linux
+          path: dist/novastream 
