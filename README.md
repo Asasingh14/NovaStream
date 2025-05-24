@@ -24,6 +24,7 @@ NovaStream is a powerful HLS streaming downloader for movies, series, and more. 
    - [Programmatic API](#programmatic-api)
 4. [Contributing](#contributing)
 5. [License](#license)
+6. [Testing](#testing)
 
 ## Features
 
@@ -97,6 +98,18 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+## Testing
+
+Use the Makefile to run tests and generate coverage:
+
+```bash
+# Run the test suite only
+make test
+
+# Generate coverage report (coverage.xml + HTML site)
+make coverage
+```
 
 ---
 _End of README for NovaStream_ 

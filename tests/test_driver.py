@@ -23,12 +23,12 @@ class DummyWebdriver:
 @pytest.fixture(autouse=True)
 def setup_monkey(monkeypatch):
     # Stub the ChromeDriverManager.install to return a fake path
-    monkeypatch.setattr(driver_mod.ChromeDriverManager, 'install', lambda self: '/fake/path')
+    monkeypatch.setattr('webdriver_manager.chrome.ChromeDriverManager.install', lambda self: '/fake/path', raising=True)
     # Replace Options and Service with dummy classes
-    monkeypatch.setattr(driver_mod, 'Options', DummyOptions)
-    monkeypatch.setattr(driver_mod, 'Service', DummyService)
+    monkeypatch.setattr('selenium.webdriver.chrome.options.Options', DummyOptions, raising=True)
+    monkeypatch.setattr('selenium.webdriver.chrome.service.Service', DummyService, raising=True)
     # Stub webdriver.Chrome to use DummyWebdriver
-    monkeypatch.setattr(driver_mod.webdriver, 'Chrome', lambda service, options: DummyWebdriver(service, options))
+    monkeypatch.setattr('seleniumwire.webdriver.Chrome', lambda *args, **kwargs: DummyWebdriver(kwargs.get('service'), kwargs.get('options')), raising=True)
 
 
 def test_get_driver_returns_correct_instance():

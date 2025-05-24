@@ -9,3 +9,5 @@ art
 colorama
 urlgrabber
 pytest
+pytest-cov
+coverage

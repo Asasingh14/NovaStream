@@ -24,7 +24,7 @@ class DummyDriver:
 
 def test_get_manifest_urls_filters(monkeypatch):
     # Patch Chrome driver and sleep
-    monkeypatch.setattr(manifest_mod.webdriver, 'Chrome', lambda *args, **kwargs: DummyDriver())
+    monkeypatch.setattr('seleniumwire.webdriver.Chrome', lambda *args, **kwargs: DummyDriver(), raising=True)
     monkeypatch.setattr(time, 'sleep', lambda x: None)
     manifests = get_manifest_urls('http://test', wait=0)
     assert 'http://x/media.m3u8' in manifests
@@ -37,7 +37,7 @@ class EmptyDriver(DummyDriver):
         self.requests = []
 
 def test_get_manifest_urls_empty(monkeypatch):
-    monkeypatch.setattr(manifest_mod.webdriver, 'Chrome', lambda *args, **kwargs: EmptyDriver())
+    monkeypatch.setattr('seleniumwire.webdriver.Chrome', lambda *args, **kwargs: EmptyDriver(), raising=True)
     monkeypatch.setattr(time, 'sleep', lambda x: None)
     manifests = get_manifest_urls('http://none', wait=0)
     assert manifests == set() 
