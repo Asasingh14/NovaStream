@@ -102,13 +102,21 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ## Testing
 
-Run tests and generate coverage directly with pytest:
+- First, install development dependencies:
 
 ```bash
-# Run all tests
-pytest
+pip install -r requirements-dev.txt
+```
 
-# Run tests with coverage
+- Run all tests:
+
+```bash
+pytest
+```
+
+- Run tests with coverage:
+
+```bash
 pytest --cov --cov-branch --cov-report=xml
 ```
 

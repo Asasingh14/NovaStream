@@ -1,0 +1,10 @@
+# Development requirements (includes base requirements)
+-r requirements.txt
+
+# Testing
+pytest
+pytest-cov
+coverage
+
+# Utilities
+pipreqs 
