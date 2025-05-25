@@ -1,0 +1,118 @@
+name: Release NovaStream
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  create_release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          body: |
+            Release of NovaStream version ${{ github.ref_name }}
+
+  build_macos:
+    needs: create_release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: pip install pyinstaller upx
+      - name: Build macOS binary
+        run: |
+          pyinstaller --clean --strip --windowed --onefile --name novastream \
+            --exclude-module seleniumwire \
+            --exclude-module selenium \
+            --exclude-module webdriver_manager \
+            --add-data "src/icon.png:src" \
+            src/gui.py
+      - name: Zip binary
+        run: |
+          zip -j novastream-macos-${{ github.ref_name }}.zip dist/novastream
+      - name: Upload macOS asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: novastream-macos-${{ github.ref_name }}.zip
+          asset_name: novastream-macos-${{ github.ref_name }}.zip
+          asset_content_type: application/zip
+
+  build_windows:
+    needs: create_release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: pip install pyinstaller upx
+      - name: Build Windows binary
+        shell: cmd
+        run: |
+          pyinstaller --clean --strip --windowed --onefile --name novastream.exe ^
+            --exclude-module seleniumwire ^
+            --exclude-module selenium ^
+            --exclude-module webdriver_manager ^
+            --add-data "src\\icon.png;src" ^
+            src\\gui.py
+      - name: Zip binary
+        shell: bash
+        run: |
+          powershell -Command "Compress-Archive -Path dist\novastream.exe -DestinationPath novastream-windows-${{ github.ref_name }}.zip"
+      - name: Upload Windows asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: novastream-windows-${{ github.ref_name }}.zip
+          asset_name: novastream-windows-${{ github.ref_name }}.zip
+          asset_content_type: application/zip
+
+  build_linux:
+    needs: create_release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y upx-ucl zip libgtk-3-dev libgl1-mesa-dev libglib2.0-dev
+          pip install pyinstaller
+      - name: Build Linux binary
+        run: |
+          pyinstaller --clean --strip --windowed --onefile --name novastream \
+            --exclude-module seleniumwire \
+            --exclude-module selenium \
+            --exclude-module webdriver_manager \
+            --add-data "src/icon.png:src" \
+            src/gui.py
+      - name: Zip binary
+        run: |
+          zip -j novastream-linux-${{ github.ref_name }}.zip dist/novastream
+      - name: Upload Linux asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: novastream-linux-${{ github.ref_name }}.zip
+          asset_name: novastream-linux-${{ github.ref_name }}.zip
+          asset_content_type: application/zip 
