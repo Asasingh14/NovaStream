@@ -67,7 +67,7 @@ jobs:
             --add-data "src/icon.png:src" \
             src/gui.py
       - name: Upload macOS artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: novastream-macos
           path: dist/novastream
@@ -98,7 +98,7 @@ jobs:
             --add-data "src\\icon.png;src" ^
             src\\gui.py
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v1
         with:
           name: novastream-windows
           path: dist/novastream.exe
@@ -128,7 +128,7 @@ jobs:
             --add-data "src/icon.png:src" \
             src/gui.py
       - name: Upload Linux artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v1
         with:
           name: novastream-linux
           path: dist/novastream 
