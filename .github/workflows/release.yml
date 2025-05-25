@@ -6,24 +6,8 @@ on:
       - 'v*'
 
 jobs:
-  create_release:
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-    steps:
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-          body: |
-            Release of NovaStream version ${{ github.ref_name }}
-
-  build_macos:
-    needs: create_release
+  release-macos:
+    name: Build & Release macOS
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,19 +25,18 @@ jobs:
             --exclude-module webdriver_manager \
             --add-data "src/icon.png:src" \
             src/gui.py
-      - name: Zip binary
-        run: |
-          zip -j novastream-macos-${{ github.ref_name }}.zip dist/novastream
-      - name: Upload macOS asset
-        uses: actions/upload-release-asset@v1
+      - name: Zip macOS binary
+        run: zip -j novastream-macos-${{ github.ref_name }}.zip dist/novastream
+      - name: Publish macOS asset
+        uses: ncipollo/release-action@v1
         with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: novastream-macos-${{ github.ref_name }}.zip
-          asset_name: novastream-macos-${{ github.ref_name }}.zip
-          asset_content_type: application/zip
+          tag: ${{ github.ref_name }}
+          files: novastream-macos-${{ github.ref_name }}.zip
+          draft: false
+          prerelease: false
 
-  build_windows:
-    needs: create_release
+  release-windows:
+    name: Build & Release Windows
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,20 +55,18 @@ jobs:
             --exclude-module webdriver_manager ^
             --add-data "src\\icon.png;src" ^
             src\\gui.py
-      - name: Zip binary
-        shell: bash
-        run: |
-          powershell -Command "Compress-Archive -Path dist\novastream.exe -DestinationPath novastream-windows-${{ github.ref_name }}.zip"
-      - name: Upload Windows asset
-        uses: actions/upload-release-asset@v1
+      - name: Zip Windows binary
+        run: powershell -Command "Compress-Archive -Path dist\novastream.exe -DestinationPath novastream-windows-${{ github.ref_name }}.zip"
+      - name: Publish Windows asset
+        uses: ncipollo/release-action@v1
         with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: novastream-windows-${{ github.ref_name }}.zip
-          asset_name: novastream-windows-${{ github.ref_name }}.zip
-          asset_content_type: application/zip
+          tag: ${{ github.ref_name }}
+          files: novastream-windows-${{ github.ref_name }}.zip
+          draft: false
+          prerelease: false
 
-  build_linux:
-    needs: create_release
+  release-linux:
+    name: Build & Release Linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -106,13 +87,12 @@ jobs:
             --exclude-module webdriver_manager \
             --add-data "src/icon.png:src" \
             src/gui.py
-      - name: Zip binary
-        run: |
-          zip -j novastream-linux-${{ github.ref_name }}.zip dist/novastream
-      - name: Upload Linux asset
-        uses: actions/upload-release-asset@v1
+      - name: Zip Linux binary
+        run: zip -j novastream-linux-${{ github.ref_name }}.zip dist/novastream
+      - name: Publish Linux asset
+        uses: ncipollo/release-action@v1
         with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: novastream-linux-${{ github.ref_name }}.zip
-          asset_name: novastream-linux-${{ github.ref_name }}.zip
-          asset_content_type: application/zip 
+          tag: ${{ github.ref_name }}
+          files: novastream-linux-${{ github.ref_name }}.zip
+          draft: false
+          prerelease: false 
