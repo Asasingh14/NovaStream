@@ -25,6 +25,7 @@ NovaStream is a powerful HLS streaming downloader for movies, series, and more. 
 4. [Contributing](#contributing)
 5. [License](#license)
 6. [Testing](#testing)
+7. [Continuous Integration](#continuous-integration)
 
 ## Features
 
@@ -101,15 +102,32 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ## Testing
 
-Use the Makefile to run tests and generate coverage:
+Run tests and generate coverage directly with pytest:
 
 ```bash
-# Run the test suite only
-make test
+# Run all tests
+pytest
 
-# Generate coverage report (coverage.xml + HTML site)
-make coverage
+# Run tests with coverage
+pytest --cov --cov-branch --cov-report=xml
 ```
+
+## Continuous Integration
+
+This repository uses GitHub Actions for a robust CI pipeline:
+
+- **Test Job**: runs on every push and pull request to any branch.
+  - Executes `pytest --cov --cov-branch --cov-report=xml`.
+  - Uploads coverage to Codecov.
+  - Automatically cancels in-progress runs on the same branch (concurrency group).
+  - Fails fast on test failures and has a 15-minute timeout.
+
+- **Build Jobs**: triggered only on pushes to `main`.
+  - Build standalone `novastream` binaries for macOS, Windows, and Linux.
+  - Each has a 30-minute timeout.
+  - Canceled if tests did not pass (jobs depend on the test job).
+
+Make sure to enable the **test** job as a required status check in your branch protection rules to prevent merges to `main` if tests are failing.
 
 ---
 _End of README for NovaStream_ 
