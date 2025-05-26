@@ -159,3 +159,6 @@ coverage/
 
 # Logs directory
 logs/ 
+
+run.bat
+run.sh

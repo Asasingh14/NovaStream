@@ -6,101 +6,108 @@ on:
       - 'v*'
 
 jobs:
-  release-macos:
-    name: Build & Release macOS
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-      - name: Install UPX
-        run: brew install upx || true
-      - name: Install dependencies
-        run: pip install pyinstaller
-      - name: Build macOS binary
-        run: |
-          pyinstaller --clean --strip --windowed --onefile --name novastream \
-            --exclude-module seleniumwire \
-            --exclude-module selenium \
-            --exclude-module webdriver_manager \
-            --add-data "src/icon.png:src" \
-            src/gui.py
-      - name: Zip macOS binary
-        run: zip -j novastream-macos-${{ github.ref_name }}.zip dist/novastream
-      - name: Publish macOS asset
-        uses: ncipollo/release-action@v1
-        with:
-          token: ${{ secrets.GH_RELEASE_TOKEN }}
-          tag: ${{ github.ref_name }}
-          artifacts: novastream-macos-${{ github.ref_name }}.zip
-          name: novastream-macos-${{ github.ref_name }}.zip
-          draft: false
-          prerelease: false
-
-  release-windows:
-    name: Build & Release Windows
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-      - name: Install dependencies
-        run: pip install pyinstaller
-      - name: Build Windows binary
-        shell: cmd
-        run: |
-          pyinstaller --clean --strip --windowed --onefile --name novastream.exe ^
-            --exclude-module seleniumwire ^
-            --exclude-module selenium ^
-            --exclude-module webdriver_manager ^
-            --add-data "src\\icon.png;src" ^
-            src\\gui.py
-      - name: Zip Windows binary
-        run: powershell -Command "Compress-Archive -Path dist\novastream.exe -DestinationPath novastream-windows-${{ github.ref_name }}.zip"
-      - name: Publish Windows asset
-        uses: ncipollo/release-action@v1
-        with:
-          token: ${{ secrets.GH_RELEASE_TOKEN }}
-          tag: ${{ github.ref_name }}
-          artifacts: novastream-windows-${{ github.ref_name }}.zip
-          name: novastream-windows-${{ github.ref_name }}.zip
-          draft: false
-          prerelease: false
-
-  release-linux:
-    name: Build & Release Linux
+  test:
+    name: Run tests before release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Set up Python
+        uses: actions/setup-python@v4
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Run tests
+        run: pytest --maxfail=1 --disable-warnings
+
+  release:
+    name: Build & Release Binaries
+    needs: test
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+            ext: ""
+            disable_console: ""
+            macos_app: "--macos-app-bundle"
+          - os: ubuntu-latest
+            platform: linux
+            ext: ""
+            disable_console: ""
+            macos_app: ""
+          - os: windows-latest
+            platform: windows-x64
+            ext: ".exe"
+            disable_console: "--windows-disable-console"
+            macos_app: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache ccache
+        uses: actions/cache@v3
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-ccache-${{ matrix.platform }}-${{ hashFiles('src/**/*.py') }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-${{ matrix.platform }}-
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
-      - name: Install dependencies
+
+      - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y upx-ucl zip libgtk-3-dev libgl1-mesa-dev libglib2.0-dev
-          pip install pyinstaller
-      - name: Build Linux binary
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            brew install ccache upx || true
+          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            sudo apt-get update && sudo apt-get install -y ccache upx-ucl zip libgtk-3-dev libgl1-mesa-dev libglib2.0-dev
+          else
+            choco install ccache upx -y || exit 0
+          fi
+
+      - name: Install Python dependencies
+        run: pip install nuitka
+
+      - name: Build binary with Nuitka
         run: |
-          pyinstaller --clean --strip --windowed --onefile --name novastream \
-            --exclude-module seleniumwire \
-            --exclude-module selenium \
-            --exclude-module webdriver_manager \
-            --add-data "src/icon.png:src" \
+          python -m nuitka \
+            --standalone \
+            --onefile \
+            --plugin-enable=tk-inter \
+            --enable-ccache \
+            ${{ matrix.disable_console }} ${{ matrix.macos_app }} \
+            --output-dir=dist \
+            --output-filename=novastream${{ matrix.ext }} \
             src/gui.py
-      - name: Zip Linux binary
-        run: zip -j novastream-linux-${{ github.ref_name }}.zip dist/novastream
-      - name: Publish Linux asset
+
+      - name: Zip binary
+        run: |
+          zip -j novastream-${{ matrix.platform }}-${{ github.ref_name }}.zip dist/novastream${{ matrix.ext }}
+
+      - name: Publish asset
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GH_RELEASE_TOKEN }}
           tag: ${{ github.ref_name }}
-          artifacts: novastream-linux-${{ github.ref_name }}.zip
-          name: novastream-linux-${{ github.ref_name }}.zip
+          artifacts: novastream-${{ matrix.platform }}-${{ github.ref_name }}.zip
+          name: novastream-${{ matrix.platform }}-${{ github.ref_name }}.zip
           draft: false
-          prerelease: false 
+          prerelease: false
+          skipIfReleaseExists: true 
