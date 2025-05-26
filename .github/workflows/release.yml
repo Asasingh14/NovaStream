@@ -32,8 +32,10 @@ jobs:
       - name: Publish macOS asset
         uses: ncipollo/release-action@v1
         with:
+          token: ${{ secrets.GH_RELEASE_TOKEN }}
           tag: ${{ github.ref_name }}
-          files: novastream-macos-${{ github.ref_name }}.zip
+          artifact: novastream-macos-${{ github.ref_name }}.zip
+          name: novastream-macos-${{ github.ref_name }}.zip
           draft: false
           prerelease: false
 
@@ -62,8 +64,10 @@ jobs:
       - name: Publish Windows asset
         uses: ncipollo/release-action@v1
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
-          files: novastream-windows-${{ github.ref_name }}.zip
+          artifact: novastream-windows-${{ github.ref_name }}.zip
+          name: novastream-windows-${{ github.ref_name }}.zip
           draft: false
           prerelease: false
 
@@ -94,7 +98,9 @@ jobs:
       - name: Publish Linux asset
         uses: ncipollo/release-action@v1
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
-          files: novastream-linux-${{ github.ref_name }}.zip
+          artifact: novastream-linux-${{ github.ref_name }}.zip
+          name: novastream-linux-${{ github.ref_name }}.zip
           draft: false
           prerelease: false 
