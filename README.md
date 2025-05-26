@@ -4,7 +4,7 @@
 [![PyPI Version](https://img.shields.io/pypi/v/novastream.svg)](https://pypi.org/project/novastream/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python Versions](https://img.shields.io/pypi/pyversions/novastream.svg)](https://pypi.org/project/novastream/)
-[![Coverage Status](https://img.shields.io/codecov/c/gh/Asasingh14/NovaStream.svg)](https://codecov.io/gh/Asasingh14/NovaStream)
+[![codecov](https://codecov.io/gh/Asasingh14/NovaStream/branch/main/graph/badge.svg?token=8PBXU7ND63)](https://codecov.io/gh/Asasingh14/NovaStream)
 
 NovaStream is a powerful HLS streaming downloader for movies, series, and more. It offers:
 
