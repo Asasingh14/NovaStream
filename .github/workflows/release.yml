@@ -34,17 +34,26 @@ jobs:
             platform: mac
             ext: ""
             disable_console: ""
-            macos_app: "--macos-app-bundle"
+            macos_app: "--macos-create-app-bundle"
+            icon_flag: "--macos-app-icon=src/icon.png"
+            uac_admin: ""
+            uac_uiaccess: ""
           - os: ubuntu-latest
             platform: linux
             ext: ""
             disable_console: ""
             macos_app: ""
+            icon_flag: ""
+            uac_admin: ""
+            uac_uiaccess: ""
           - os: windows-latest
             platform: windows-x64
             ext: ".exe"
-            disable_console: "--windows-disable-console"
+            disable_console: "--windows-console-mode=disable"
             macos_app: ""
+            icon_flag: "--windows-icon-from-ico=src/icon.png"
+            uac_admin: "--windows-uac-admin"
+            uac_uiaccess: "--windows-uac-uiaccess"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -93,7 +102,7 @@ jobs:
             --standalone \
             --onefile \
             --plugin-enable=tk-inter \
-            ${{ matrix.disable_console }} ${{ matrix.macos_app }} \
+            ${{ matrix.disable_console }} ${{ matrix.macos_app }} ${{ matrix.icon_flag }} ${{ matrix.uac_admin }} ${{ matrix.uac_uiaccess }} \
             --output-dir=dist \
             --output-filename=novastream${{ matrix.ext }} \
             src/gui.py
