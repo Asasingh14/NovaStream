@@ -88,9 +88,8 @@ jobs:
           script-name: src/gui.py
           mode: standalone
           enable-plugins: tk-inter
-          cache: pip
-          cache-dependency-path: |
-            **/requirements*.txt
+          macos-app-icon: src/icon.png
+          windows-icon-from-ico: src/icon.png
 
       - name: Zip binary
         run: |
