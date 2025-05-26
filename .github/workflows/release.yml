@@ -94,9 +94,15 @@ jobs:
           macos-app-icon: src/icon.png
           windows-icon-from-ico: src/icon.png
 
-      - name: Zip binary
+      - name: Zip binary (macOS)
+        if: matrix.os == 'macos-latest'
         run: |
-          zip -j novastream-${{ matrix.platform }}-${{ github.ref_name }}.zip build/*
+          zip -r novastream-${{ matrix.platform }}-${{ github.ref_name }}.zip build
+      - name: Zip binary (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          Compress-Archive -Path build\\* -DestinationPath novastream-${{ matrix.platform }}-${{ github.ref_name }}.zip -Force
 
       - name: Publish asset
         uses: ncipollo/release-action@v1
@@ -107,4 +113,4 @@ jobs:
           name: novastream-${{ matrix.platform }}-${{ github.ref_name }}.zip
           draft: false
           prerelease: false
-          skipIfReleaseExists: true 
+          skipIfReleaseExists: true
