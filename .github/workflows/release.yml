@@ -81,6 +81,9 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: choco install ccache upx -y || true
 
+      - name: Install imageio for icon conversion
+        run: pip install imageio
+
       - name: Build Executable with Nuitka Action
         uses: Nuitka/Nuitka-Action@main
         with:
