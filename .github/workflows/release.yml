@@ -72,15 +72,17 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install system dependencies
-        run: |
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
-            brew install ccache upx || true
-          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            sudo apt-get update && sudo apt-get install -y ccache upx-ucl zip libgtk-3-dev libgl1-mesa-dev libglib2.0-dev
-          else
-            choco install ccache upx -y || exit 0
-          fi
+      - name: Install macOS dependencies
+        if: matrix.os == 'macos-latest'
+        run: brew install ccache upx || true
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y ccache upx-ucl zip libgtk-3-dev libgl1-mesa-dev libglib2.0-dev
+
+      - name: Install Windows dependencies
+        if: matrix.os == 'windows-latest'
+        run: choco install ccache upx -y || true
 
       - name: Install Python dependencies
         run: pip install nuitka
@@ -91,7 +93,6 @@ jobs:
             --standalone \
             --onefile \
             --plugin-enable=tk-inter \
-            --enable-ccache \
             ${{ matrix.disable_console }} ${{ matrix.macos_app }} \
             --output-dir=dist \
             --output-filename=novastream${{ matrix.ext }} \
