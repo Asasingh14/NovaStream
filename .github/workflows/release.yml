@@ -15,8 +15,10 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
+      - name: Install UPX
+        run: brew install upx || true
       - name: Install dependencies
-        run: pip install pyinstaller upx
+        run: pip install pyinstaller
       - name: Build macOS binary
         run: |
           pyinstaller --clean --strip --windowed --onefile --name novastream \
@@ -45,7 +47,7 @@ jobs:
         with:
           python-version: '3.x'
       - name: Install dependencies
-        run: pip install pyinstaller upx
+        run: pip install pyinstaller
       - name: Build Windows binary
         shell: cmd
         run: |
