@@ -55,21 +55,15 @@ jobs:
           - platform: windows
             os: windows-latest
             ext: .exe
-            icon: src\\icon.png
             add_data: src\\icon.png;src
-            shell: cmd
           - platform: macos
             os: macos-latest
             ext: ""
-            icon: src/icon.png
             add_data: src/icon.png:src
-            shell: bash
           - platform: linux
             os: ubuntu-latest
             ext: ""
-            icon: src/icon.png
             add_data: src/icon.png:src
-            shell: bash
 
     steps:
       - uses: actions/checkout@v4
@@ -80,30 +74,40 @@ jobs:
           python-version: '3.x'
 
       - name: Install dependencies
-        run: |
-          pip install pyinstaller
+        run: pip install pyinstaller
 
-      - name: Install platform-specific tools
+      - name: Install platform-specific tools (macOS)
         if: matrix.platform == 'macos'
         run: brew install upx || true
 
-      - name: Install platform-specific tools
+      - name: Install platform-specific tools (Linux)
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libgl1-mesa-dev libglib2.0-dev upx-ucl
 
-      - name: Build binary
-        shell: ${{ matrix.shell }}
+      - name: Build binary (Windows)
+        if: matrix.platform == 'windows'
+        shell: cmd
         run: |
           pyinstaller --clean --strip --windowed --onefile --name novastream${{ matrix.ext }} ^
             --exclude-module seleniumwire ^
             --exclude-module selenium ^
             --exclude-module webdriver_manager ^
             --add-data "${{ matrix.add_data }}" ^
+            src\\gui.py
+
+      - name: Build binary (macOS/Linux)
+        if: matrix.platform != 'windows'
+        run: |
+          pyinstaller --clean --strip --windowed --onefile --name novastream${{ matrix.ext }} \
+            --exclude-module seleniumwire \
+            --exclude-module selenium \
+            --exclude-module webdriver_manager \
+            --add-data "${{ matrix.add_data }}" \
             src/gui.py
 
-      - name: Zip build
+      - name: Zip binary
         run: |
           mkdir release
           cp dist/novastream${{ matrix.ext }} release/
