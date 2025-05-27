@@ -55,15 +55,15 @@ jobs:
           - platform: windows
             os: windows-latest
             ext: .exe
-            add_data: src\\icon.ico;src
+            add_data: src\\assets\\icon.ico;src
           - platform: macos
             os: macos-latest
             ext: ""
-            add_data: src/icon.icns:src
+            add_data: src/assets/icon.icns:src
           - platform: linux
             os: ubuntu-latest
             ext: ""
-            add_data: src/icon.ico:src
+            add_data: src/assets/icon.ico:src
 
     steps:
       - uses: actions/checkout@v4

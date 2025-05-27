@@ -69,7 +69,7 @@ jobs:
             --exclude-module seleniumwire \
             --exclude-module selenium \
             --exclude-module webdriver_manager \
-            --add-data "src/icon.png:src" \
+            --add-data "src/assets/icon.png:src" \
             src/gui.py
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -100,7 +100,7 @@ jobs:
             --exclude-module seleniumwire ^
             --exclude-module selenium ^
             --exclude-module webdriver_manager ^
-            --add-data "src\\icon.png;src" ^
+            --add-data "src\\assets\\icon.png;src" ^
             src\\gui.py
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -130,7 +130,7 @@ jobs:
             --exclude-module seleniumwire \
             --exclude-module selenium \
             --exclude-module webdriver_manager \
-            --add-data "src/icon.png:src" \
+            --add-data "src/assets/icon.png:src" \
             src/gui.py
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
