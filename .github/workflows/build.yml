@@ -10,6 +10,7 @@ on:
 jobs:
   test:
     name: Run tests and collect coverage
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
     timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
