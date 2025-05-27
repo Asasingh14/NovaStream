@@ -17,6 +17,7 @@ eggs/
 .installed.cfg
 *.egg
 MANIFEST
+data/
 
 # Installer logs
 pip-log.txt

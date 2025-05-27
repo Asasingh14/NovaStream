@@ -1,116 +1,149 @@
-name: Release NovaStream
+name: Build and Release Standalone Binaries
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 on:
   push:
-    tags:
-      - 'v*'
+  pull_request:
+  workflow_dispatch:
+  release:
+    types: [created]
 
 jobs:
   test:
-    name: Run tests before release
+    name: Run tests and collect coverage
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-      - name: Set up Python
-        uses: actions/setup-python@v4
-      - name: Install dev dependencies
-        run: pip install -r requirements-dev.txt
-      - name: Run tests
-        run: pytest --maxfail=1 --disable-warnings
-
-  release:
-    name: Build & Release Binaries
-    needs: test
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            platform: mac
-            ext: ""
-            disable_console: ""
-            macos_app: "--macos-create-app-bundle"
-            icon_flag: "--macos-app-icon=src/icon.png"
-            uac_admin: ""
-            uac_uiaccess: ""
-          - os: windows-latest
-            platform: windows-x64
-            ext: ".exe"
-            disable_console: "--windows-console-mode=disable"
-            macos_app: ""
-            icon_flag: "--windows-icon-from-ico=src/icon.png"
-            uac_admin: "--windows-uac-admin"
-            uac_uiaccess: "--windows-uac-uiaccess"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2
 
-      - name: Cache pip
-        uses: actions/cache@v3
+      - uses: actions/setup-python@v4
+
+      - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          restore-keys: ${{ runner.os }}-pip-
 
-      - name: Cache ccache
-        uses: actions/cache@v3
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - run: pytest --cov --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
+
+      - uses: codecov/codecov-action@v5
         with:
-          path: ~/.ccache
-          key: ${{ runner.os }}-ccache-${{ matrix.platform }}-${{ hashFiles('src/**/*.py') }}
-          restore-keys: |
-            ${{ runner.os }}-ccache-${{ matrix.platform }}-
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  build:
+    name: Build ${{ matrix.platform }}
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        platform: [windows, macos, linux]
+        include:
+          - platform: windows
+            os: windows-latest
+            ext: .exe
+            add_data: src\\icon.png;src
+          - platform: macos
+            os: macos-latest
+            ext: ""
+            add_data: src/icon.png:src
+          - platform: linux
+            os: ubuntu-latest
+            ext: ""
+            add_data: src/icon.png:src
+
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
 
-      - name: Install macOS dependencies
-        if: matrix.os == 'macos-latest'
-        run: brew install ccache upx || true
+      - name: Install dependencies
+        run: pip install pyinstaller
 
-      - name: Install Windows dependencies
-        if: matrix.os == 'windows-latest'
-        run: choco install ccache upx -y || true
+      - name: Install platform-specific tools (macOS)
+        if: matrix.platform == 'macos'
+        run: brew install upx || true
 
-      - name: Install imageio for icon conversion
-        run: pip install imageio
-
-      - name: Build Executable with Nuitka Action
-        uses: Nuitka/Nuitka-Action@main
-        with:
-          nuitka-version: main
-          script-name: src/gui.py
-          mode: standalone
-          enable-plugins: tk-inter
-          macos-app-icon: src/icon.png
-          windows-icon-from-ico: src/icon.png
-
-      - name: Zip binary (macOS)
-        if: matrix.os == 'macos-latest'
+      - name: Install platform-specific tools (Linux)
+        if: matrix.platform == 'linux'
         run: |
-          zip -r novastream-${{ matrix.platform }}-${{ github.ref_name }}.zip build
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libgl1-mesa-dev libglib2.0-dev upx-ucl
+
+      - name: Build binary (Windows)
+        if: matrix.platform == 'windows'
+        shell: cmd
+        run: |
+          pyinstaller --clean --strip --windowed --onefile --name NovaStream${{ matrix.ext }} ^
+            --exclude-module seleniumwire ^
+            --exclude-module selenium ^
+            --exclude-module webdriver_manager ^
+            --add-data "${{ matrix.add_data }}" ^
+            src\\gui.py
+
+      - name: Build binary (macOS/Linux)
+        if: matrix.platform != 'windows'
+        run: |
+          pyinstaller --clean --strip --windowed --onefile --name NovaStream${{ matrix.ext }} \
+            --exclude-module seleniumwire \
+            --exclude-module selenium \
+            --exclude-module webdriver_manager \
+            --add-data "${{ matrix.add_data }}" \
+            src/gui.py
+
       - name: Zip binary (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: powershell
+        if: matrix.platform == 'windows'
         run: |
-          Compress-Archive -Path build\\* -DestinationPath novastream-${{ matrix.platform }}-${{ github.ref_name }}.zip -Force
+          mkdir release
+          Copy-Item dist/NovaStream.exe release/
+          Compress-Archive -Path release/* -DestinationPath NovaStream-${{ matrix.platform }}-${{ github.ref_name }}.zip
+
+      - name: Zip binary (macOS/Linux)
+        if: matrix.platform != 'windows'
+        run: |
+          mkdir release
+          cp dist/NovaStream${{ matrix.ext }} release/
+          cd release && zip ../NovaStream-${{ matrix.platform }}-${{ github.ref_name }}.zip *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaStream-${{ matrix.platform }}
+          path: NovaStream-${{ matrix.platform }}-${{ github.ref_name }}.zip
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
 
       - name: Publish asset
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GH_RELEASE_TOKEN }}
           tag: ${{ github.ref_name }}
-          artifacts: novastream-${{ matrix.platform }}-${{ github.ref_name }}.zip
-          name: novastream-${{ matrix.platform }}-${{ github.ref_name }}.zip
+          name: NovaStream v${{ github.ref_name }}
+          artifacts: all-artifacts/**/NovaStream-*.zip
           draft: false
           prerelease: false
           skipIfReleaseExists: true
