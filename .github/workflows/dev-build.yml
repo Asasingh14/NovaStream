@@ -1,16 +1,18 @@
-name: Build Standalone Binaries
+name: Continuous Integration - Dev Branch Builds
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 on:
   push:
-  pull_request:
+    branches:
+      - '**'
+    tags-ignore:
+      - '*'
 
 jobs:
-  test:
+  run-tests:
     name: Run tests and collect coverage
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
     timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
@@ -48,10 +50,9 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  build-macos:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  build-macos-binary:
     timeout-minutes: 30
-    needs: test
+    needs: run-tests
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,10 +79,9 @@ jobs:
           name: novastream-macos
           path: dist/novastream
 
-  build-windows:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  build-windows-binary:
     timeout-minutes: 30
-    needs: test
+    needs: run-tests
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -109,10 +109,9 @@ jobs:
           name: novastream-windows
           path: dist/novastream.exe
 
-  build-linux:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  build-linux-binary:
     timeout-minutes: 30
-    needs: test
+    needs: run-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

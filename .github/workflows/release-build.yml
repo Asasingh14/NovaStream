@@ -1,4 +1,4 @@
-name: Build and Release Standalone Binaries
+name: Release Pipeline - Tag-based Builds
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -10,7 +10,7 @@ on:
       - '*'
 
 jobs:
-  test:
+  run-tests:
     name: Run tests and collect coverage
     timeout-minutes: 15
     runs-on: ubuntu-latest
@@ -42,9 +42,9 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  build:
+  build-platform-binaries:
     name: Build ${{ matrix.platform }}
-    needs: test
+    needs: run-tests
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -53,15 +53,15 @@ jobs:
           - platform: windows
             os: windows-latest
             ext: .exe
-            add_data: src\\assets\\icon.ico;src
+            icon: src\\assets\\icon.ico;src
           - platform: macos
             os: macos-latest
             ext: ""
-            add_data: src/assets/icon.icns:src
+            icon: src/assets/icon.icns:src
           - platform: linux
             os: ubuntu-latest
             ext: ""
-            add_data: src/assets/icon.ico:src
+            icon: src/assets/icon.ico:src
 
     steps:
       - uses: actions/checkout@v4
@@ -95,7 +95,7 @@ jobs:
             --exclude-module seleniumwire ^
             --exclude-module selenium ^
             --exclude-module webdriver_manager ^
-            --add-data "${{ matrix.add_data }}" ^
+            --icon "${{ matrix.icon }}" ^
             src\\gui.py
 
       - name: Build binary (macOS/Linux)
@@ -105,7 +105,7 @@ jobs:
             --exclude-module seleniumwire \
             --exclude-module selenium \
             --exclude-module webdriver_manager \
-            --add-data "${{ matrix.add_data }}" \
+            --icon "${{ matrix.icon }}" \
             src/gui.py
 
       - name: Zip binary (Windows)
@@ -128,10 +128,10 @@ jobs:
           name: NovaStream-${{ matrix.platform }}
           path: NovaStream-${{ matrix.platform }}-${{ github.ref_name }}.zip
 
-  release:
+  publish-github-release:
     name: Publish GitHub Release
     if: startsWith(github.ref, 'refs/tags/')
-    needs: build
+    needs: build-platform-binaries
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
