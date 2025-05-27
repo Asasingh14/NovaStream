@@ -98,8 +98,18 @@ jobs:
             --icon "${{ matrix.icon }}" ^
             src\\gui.py
 
-      - name: Build binary (macOS/Linux)
-        if: matrix.platform != 'windows'
+      - name: Build binary (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          pyinstaller --clean --windowed --name NovaStream \
+            --exclude-module seleniumwire \
+            --exclude-module selenium \
+            --exclude-module webdriver_manager \
+            --icon "${{ matrix.icon }}" \
+            src/gui.py
+
+      - name: Build binary (Linux)
+        if: matrix.platform == 'linux'
         run: |
           pyinstaller --clean --strip --windowed --onefile --name NovaStream${{ matrix.ext }} \
             --exclude-module seleniumwire \
@@ -119,8 +129,13 @@ jobs:
         if: matrix.platform != 'windows'
         run: |
           mkdir release
-          cp dist/NovaStream${{ matrix.ext }} release/
-          cd release && zip ../NovaStream-${{ matrix.platform }}-${{ github.ref_name }}.zip *
+          if [ "${{ matrix.platform }}" = "macos" ]; then
+            cp -R "dist/NovaStream.app" release/
+            cd release && zip -r ../NovaStream-macos-${{ github.ref_name }}.zip NovaStream.app
+          else
+            cp dist/NovaStream${{ matrix.ext }} release/
+            cd release && zip ../NovaStream-${{ matrix.platform }}-${{ github.ref_name }}.zip *
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
