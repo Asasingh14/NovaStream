@@ -53,15 +53,15 @@ jobs:
           - platform: windows
             os: windows-latest
             ext: .exe
-            icon: src\\assets\\icon.ico;src
+            icon: src\\assets\\icon.ico
           - platform: macos
             os: macos-latest
             ext: ""
-            icon: src/assets/icon.icns:src
+            icon: src/assets/icon.icns
           - platform: linux
             os: ubuntu-latest
             ext: ""
-            icon: src/assets/icon.ico:src
+            icon: src/assets/icon.ico
 
     steps:
       - uses: actions/checkout@v4
