@@ -55,15 +55,15 @@ jobs:
           - platform: windows
             os: windows-latest
             ext: .exe
-            add_data: src\\icon.png;src
+            add_data: src\\icon.ico;src
           - platform: macos
             os: macos-latest
             ext: ""
-            add_data: src/icon.png:src
+            add_data: src/icon.icns:src
           - platform: linux
             os: ubuntu-latest
             ext: ""
-            add_data: src/icon.png:src
+            add_data: src/icon.ico:src
 
     steps:
       - uses: actions/checkout@v4
@@ -74,7 +74,10 @@ jobs:
           python-version: '3.x'
 
       - name: Install dependencies
-        run: pip install pyinstaller
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
 
       - name: Install platform-specific tools (macOS)
         if: matrix.platform == 'macos'
@@ -142,7 +145,7 @@ jobs:
         with:
           token: ${{ secrets.GH_RELEASE_TOKEN }}
           tag: ${{ github.ref_name }}
-          name: NovaStream v${{ github.ref_name }}
+          name: NovaStream ${{ github.ref_name }}
           artifacts: all-artifacts/**/NovaStream-*.zip
           draft: false
           prerelease: false
