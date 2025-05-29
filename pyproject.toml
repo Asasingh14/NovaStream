@@ -9,7 +9,7 @@ description = "HLS series downloader"
 readme = "README.md"
 requires-python = ">=3.7"
 license = { text = "MIT" }
-authors = [ { name = "Asa" } ]
+authors = [ { name = "d4rkw3bd31ty" } ]
 dependencies = [
     "selenium-wire",
     "selenium",
@@ -27,4 +27,4 @@ dependencies = [
 novastream = "src.gui:main"
 
 [tool.setuptools.package-data]
-"src" = ["icon.png"] 
+"src" = ["assets/icon.png"] 

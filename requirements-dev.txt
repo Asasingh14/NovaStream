@@ -5,6 +5,9 @@
 pytest
 pytest-cov
 coverage
+bandit
+safety
+ruff
 
 # Utilities
 pipreqs 

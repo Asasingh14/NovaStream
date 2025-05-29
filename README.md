@@ -1,73 +1,85 @@
 # NovaStream
 
-[![Build Status](https://github.com/Asasingh14/NovaStream/actions/workflows/build.yml/badge.svg)](https://github.com/Asasingh14/NovaStream/actions)
-[![PyPI Version](https://img.shields.io/pypi/v/novastream.svg)](https://pypi.org/project/novastream/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python Versions](https://img.shields.io/pypi/pyversions/novastream.svg)](https://pypi.org/project/novastream/)
+[![Build & Release](https://github.com/Asasingh14/NovaStream/actions/workflows/release-build.yml/badge.svg)](https://github.com/Asasingh14/NovaStream/actions/workflows/release-build.yml)
 [![codecov](https://codecov.io/gh/Asasingh14/NovaStream/branch/main/graph/badge.svg?token=8PBXU7ND63)](https://codecov.io/gh/Asasingh14/NovaStream)
+[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Last Commit](https://img.shields.io/github/last-commit/Asasingh14/NovaStream)](https://github.com/Asasingh14/NovaStream/commits/main)
+[![Release](https://img.shields.io/github/v/release/Asasingh14/NovaStream)](https://github.com/Asasingh14/NovaStream/releases)
+[![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)](#)
+[![Open Issues](https://img.shields.io/github/issues/Asasingh14/NovaStream)](https://github.com/Asasingh14/NovaStream/issues)
+[![Pull Requests](https://img.shields.io/github/issues-pr/Asasingh14/NovaStream)](https://github.com/Asasingh14/NovaStream/pulls)
 
-NovaStream is a powerful HLS streaming downloader for movies, series, and more. It offers:
+---
 
-- A sleek Tkinter-based GUI for interactive downloads
-- A programmatic API for scriptable use
-- Episode selection by range or full-season download
-- Real-time progress bars and instant cancellation
-- Multi-threaded downloads with logging and resume support
-- Cross-platform compatibility (Windows, macOS, Linux)
+**NovaStream** is a cross-platform HLS streaming downloader for movies, series, and more. Whether you're a developer or an end user, NovaStream simplifies the process of downloading media via `.m3u8` manifests with ease.
 
-## Table of Contents
+---
 
-1. [Features](#features)
-2. [Installation](#installation)
-3. [Usage](#usage)
-   - [GUI](#gui)
-   - [Programmatic API](#programmatic-api)
-4. [Contributing](#contributing)
-5. [License](#license)
-6. [Testing](#testing)
-7. [Continuous Integration](#continuous-integration)
+## 🔥 Key Features
 
-## Features
+- ✅ GUI powered by Tkinter for non-technical users  
+- 🧠 Programmatic API for developers and automation  
+- 🔄 Range-based or full-season episode selection  
+- 💡 Smart file naming: `Drama Name - Episode XX - Title.mp4`  
+- 🚀 Multi-threaded downloading with resume support  
+- 🧹 Automatic cleanup on interruption or cancel  
+- 🔒 Works offline once streaming URLs are obtained  
 
-- Download HLS-based streaming episodes via m3u8 manifests
-- Select specific episodes (`1,3-5`) or download all
-- Instant cancel & cleanup of partial downloads
-- Human-friendly file naming: `Drama Name - Episode XX - Title.mp4`
-- Configurable worker threads for parallel downloads
-- Graphical interface powered by Tkinter
-- Programmatic interface via `run_download`
-- Comprehensive logging and verbose mode
+---
 
-## Installation
+## 📚 Table of Contents
 
-### From PyPI
+1. [Installation](#installation)  
+2. [Usage](#usage)  
+   - [Graphical User Interface](#graphical-user-interface)  
+   - [Programmatic API](#programmatic-api)  
+3. [Development](#development)  
+4. [Testing](#testing)  
+5. [Contributing](#contributing)  
+6. [License](#license)  
+7. [CI/CD & Workflow](#cicd--workflow)  
+8. [Roadmap](#roadmap)  
 
-```bash
-pip install novastream
-```
+---
 
-### From GitHub
+## 📦 Installation
+
+> **Note:** NovaStream is not yet on PyPI. Please install via GitHub.
+
+### Install via GitHub
 
 ```bash
 pip install git+https://github.com/Asasingh14/NovaStream.git
 ```
 
-## Usage
+### Manual Clone
 
-### GUI
+```bash
+git clone https://github.com/Asasingh14/NovaStream.git
+cd NovaStream
+pip install .
+```
 
-After installation, launch the GUI:
+---
+
+## 🖥️ Usage
+
+### Graphical User Interface
 
 ```bash
 novastream
 ```
 
-1. Enter the stream's homepage URL
-2. Provide a drama/series name (optional)
-3. Choose an output folder
-4. Tick **Download ALL** or enter specific episodes
-5. Set the number of **Workers**
-6. Click **Start**
+Then:
+1. Paste the stream homepage or episode URL  
+2. Optionally enter a drama/series name  
+3. Choose output folder  
+4. Select specific episodes (e.g., 1,3-5) or download all  
+5. Set number of workers (e.g., 4)  
+6. Click Start  
+
+---
 
 ### Programmatic API
 
@@ -84,58 +96,91 @@ run_download(
 )
 ```
 
-## Contributing
+---
 
-Contributions, issues, and feature requests are welcome! Please:
+## 🛠️ Development
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/YourFeature`)
-3. Commit your changes (`git commit -am 'Add NewFeature'`)
-4. Push to the branch (`git push origin feature/YourFeature`)
-5. Open a Pull Request
+### Requirements
+- Python 3.8+  
+- ffmpeg installed and in system PATH  
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
-
-## License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
-## Testing
-
-- First, install development dependencies:
-
+### Setup Dev Environment
 ```bash
+python -m venv venv
+source venv/bin/activate  # or venv\\Scripts\\activate on Windows
 pip install -r requirements-dev.txt
 ```
 
-- Run all tests:
+---
 
+## ✅ Testing
+
+### Run all tests:
 ```bash
 pytest
 ```
 
-- Run tests with coverage:
-
+### With coverage:
 ```bash
 pytest --cov --cov-branch --cov-report=xml
 ```
 
-## Continuous Integration
-
-This repository uses GitHub Actions for a robust CI pipeline:
-
-- **Test Job**: runs on every push and pull request to any branch.
-  - Executes `pytest --cov --cov-branch --cov-report=xml`.
-  - Uploads coverage to Codecov.
-  - Automatically cancels in-progress runs on the same branch (concurrency group).
-  - Fails fast on test failures and has a 15-minute timeout.
-
-- **Build Jobs**: triggered only on pushes to `main`.
-  - Build standalone `novastream` binaries for macOS, Windows, and Linux.
-  - Each has a 30-minute timeout.
-  - Canceled if tests did not pass (jobs depend on the test job).
-
-Make sure to enable the **test** job as a required status check in your branch protection rules to prevent merges to `main` if tests are failing.
+### Linting (optional):
+```bash
+ruff check src tests
+```
 
 ---
-_End of README for NovaStream_ 
+
+## 🤝 Contributing
+
+We welcome contributions! Follow these steps:
+1. Fork the repo  
+2. Create your branch: `git checkout -b feature/awesome`  
+3. Commit changes: `git commit -am 'feat: awesome new feature'`  
+4. Push: `git push origin feature/awesome`  
+5. Open a PR  
+
+See CONTRIBUTING.md for detailed guidelines.
+
+---
+
+## 📄 License
+
+---
+
+This project is licensed under the MIT License. See LICENSE for details.
+
+---
+
+## 🚦 CI/CD & Workflow
+
+---
+
+NovaStream uses GitHub Actions:
+- Test Workflow: Runs on every push & PR  
+- pytest with coverage  
+- Uploads to Codecov  
+- Build Workflow:  
+  - Runs only on main branch pushes  
+  - Builds standalone binaries for Windows, macOS, Linux  
+- Auto-cancel: Concurrent runs on same branch auto-cancelled  
+- Fail fast: Workflows fail on test failure  
+
+---
+
+## 🛣️ Roadmap
+
+---
+
+- Basic GUI for stream selection  
+- Programmatic download interface  
+- Multi-threaded engine  
+- Drag-and-drop episode links  
+- Subtitle (.vtt) merging  
+- Auto-update mechanism  
+- Full settings GUI  
+
+---
+
+Built by d4rkw3bd31ty
