@@ -1,4 +1,4 @@
-name: Release Pipeline - Tag-based Builds
+name: Release - Tag-based Builds
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

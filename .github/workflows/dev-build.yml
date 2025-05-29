@@ -1,4 +1,4 @@
-name: Continuous Integration - Dev Branch Builds
+name: CI - Dev Branch Builds
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -11,8 +11,8 @@ on:
       - '*'
 
 jobs:
-  run-tests:
-    name: Run tests and collect coverage
+  run-tests-and-coverage:
+    name: Run Tests and Coverage
     timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
@@ -41,12 +41,7 @@ jobs:
 
       - name: Run Bandit (security scan)
         run: bandit -r src
-
-      - name: Run Safety (dependency scan)
-        env:
-          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
-        run: safety check --full-report
-
+        
       - name: Run tests
         run: pytest --cov --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
 
@@ -60,9 +55,38 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  codeql-analysis:
+    name: Static Code Analysis (CodeQL)
+    runs-on: ubuntu-latest
+    needs: run-tests-and-coverage
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: github/codeql-action/init@v2
+        with:
+          languages: python
+
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/analyze@v2
+
+  dependency-vulnerability-scan-safety:
+    name: Dependency Vulnerability Scan (Safety)
+    runs-on: ubuntu-latest
+    needs: run-tests-and-coverage
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Safety CLI to check for vulnerabilities
+        uses: pyupio/safety-action@v1
+        with:
+          api-key: ${{ secrets.SAFETY_API_KEY }}
+
   build-macos-binary:
+    name: Build macOS Binary
     timeout-minutes: 30
-    needs: run-tests
+    needs: run-tests-and-coverage
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -90,8 +114,9 @@ jobs:
           path: dist/novastream
 
   build-windows-binary:
+    name: Build Windows Binary
     timeout-minutes: 30
-    needs: run-tests
+    needs: run-tests-and-coverage
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -120,8 +145,9 @@ jobs:
           path: dist/novastream.exe
 
   build-linux-binary:
+    name: Build Linux Binary
     timeout-minutes: 30
-    needs: run-tests
+    needs: run-tests-and-coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -146,21 +172,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: novastream-linux
-          path: dist/novastream 
-  
-  codeql-analysis:
-    name: CodeQL Analysis
-    runs-on: ubuntu-latest
-    needs: run-tests
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    steps:
-      - uses: github/codeql-action/init@v2
-        with:
-          languages: python
-
-      - uses: actions/checkout@v4
-
-      - uses: github/codeql-action/analyze@v2
+          path: dist/novastream
