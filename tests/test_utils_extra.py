@@ -1,5 +1,4 @@
-import pytest
-from src.utils import banner, text2art
+from src.utils import banner
 from colorama import Fore
 
 def test_banner(monkeypatch, capsys):

@@ -1,4 +1,3 @@
-import pytest
 from src.scraper import find_episode_links
 
 class DummyResp:

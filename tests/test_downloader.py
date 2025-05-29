@@ -1,5 +1,3 @@
-import os
-import pytest
 from src.downloader import download_episode
 import src.downloader as dlmod
 

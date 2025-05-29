@@ -1,5 +1,4 @@
 import pytest
-import src.driver as driver_mod
 from src.driver import get_driver
 
 class DummyOptions:
