@@ -43,7 +43,9 @@ jobs:
         run: bandit -r src
 
       - name: Run Safety (dependency scan)
-        run: safety scan --full-report
+        env:
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
+        run: safety check --full-report
 
       - name: Run tests
         run: pytest --cov --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
