@@ -1,6 +1,7 @@
-from src.downloader import download_episode
+from src.downloader import download_episode, run_download
 import src.downloader as dlmod
 import pytest
+import logging
 
 class DummyRes:
     def __init__(self, code):
@@ -122,4 +123,120 @@ def test_download_episode_manifest_error(tmp_path, capsys, monkeypatch):
 
 def test_download_episode_invalid_args():
     with pytest.raises(ValueError):
-        download_episode(('bad', 'args')) 
+        download_episode(('bad', 'args'))
+
+def test_safe_download_episode_success(monkeypatch):
+    # _safe_download_episode should propagate return values
+    monkeypatch.setattr(dlmod, 'download_episode', lambda args: 'ok')
+    assert dlmod._safe_download_episode(('any',)) == 'ok'
+
+def test_safe_download_episode_exception(monkeypatch, caplog):
+    # _safe_download_episode should catch exceptions and return False
+    monkeypatch.setattr(dlmod, 'download_episode', lambda args: (_ for _ in ()).throw(Exception('err')))
+    caplog.set_level(logging.ERROR)
+    result = dlmod._safe_download_episode(('any',))
+    assert result is False
+    assert 'Error in download_episode' in caplog.text
+
+def test_run_download_single_episode(tmp_path, monkeypatch):
+    # Test single-episode URL branch
+    url = 'http://example.com/episode-5'
+    name_input = 'My Show'
+    monkeypatch.setattr(dlmod, 'banner', lambda: None)
+    # Stub multiprocessing pool
+    class DummyPool:
+        def __init__(self, workers): pass
+        def __enter__(self): return self
+        def __exit__(self, exc_type, exc, tb): pass
+        def imap_unordered(self, func, args_list): return [None for _ in args_list]
+    monkeypatch.setattr(dlmod.mp, 'Pool', DummyPool)
+    # Stub tqdm to no-op
+    monkeypatch.setattr(dlmod, 'tqdm', lambda it, total=None, desc=None: it)
+    # Stub Tk and messagebox
+    class DummyTk:
+        def withdraw(self): pass
+        def destroy(self): pass
+    monkeypatch.setattr(dlmod.tk, 'Tk', DummyTk)
+    info = {}
+    monkeypatch.setattr(dlmod.messagebox, 'showinfo', lambda title, msg: info.update({'msg': msg}))
+    run_download(url, name_input, str(tmp_path), download_all=False, episode_list=[], workers=1)
+    # Expect one file saved
+    assert '1 files saved' in info.get('msg', '')
+    assert str(tmp_path.joinpath('My_Show')) in info.get('msg', '')
+
+def test_run_download_no_episodes_error(tmp_path, monkeypatch):
+    # No episodes found and no selection provided
+    url = 'http://example.com/'
+    monkeypatch.setattr(dlmod, 'banner', lambda: None)
+    monkeypatch.setattr(dlmod, 'find_episode_links', lambda x: [])
+    class DummyTk:
+        def withdraw(self): pass
+        def destroy(self): pass
+    monkeypatch.setattr(dlmod.tk, 'Tk', DummyTk)
+    err = {}
+    monkeypatch.setattr(dlmod.messagebox, 'showerror', lambda title, msg: err.update({'msg': msg}))
+    result = run_download(url, None, str(tmp_path), download_all=False, episode_list=[], workers=1)
+    assert 'No episodes found' in err.get('msg', '')
+    assert result is None
+
+def test_run_download_download_all_no_input(tmp_path, monkeypatch):
+    # download_all True but user cancels input => returns None
+    url = 'http://example.com/'
+    monkeypatch.setattr(dlmod, 'banner', lambda: None)
+    monkeypatch.setattr(dlmod, 'find_episode_links', lambda x: [])
+    monkeypatch.setattr(dlmod.simpledialog, 'askstring', lambda *args, **kwargs: None)
+    class DummyTk:
+        def withdraw(self): pass
+        def destroy(self): pass
+    monkeypatch.setattr(dlmod.tk, 'Tk', DummyTk)
+    result = run_download(url, None, str(tmp_path), download_all=True, episode_list=[], workers=1)
+    assert result is None
+
+def test_run_download_download_all_with_input(tmp_path, monkeypatch):
+    # download_all True with user input => processes episodes
+    url = 'http://example.com/'
+    monkeypatch.setattr(dlmod, 'banner', lambda: None)
+    monkeypatch.setattr(dlmod, 'find_episode_links', lambda x: [])
+    monkeypatch.setattr(dlmod.simpledialog, 'askstring', lambda *args, **kwargs: '2')
+    class DummyTk:
+        def withdraw(self): pass
+        def destroy(self): pass
+    monkeypatch.setattr(dlmod.tk, 'Tk', DummyTk)
+    # Stub pool and tqdm and showinfo
+    class DummyPool2:
+        def __init__(self, w): pass
+        def __enter__(self): return self
+        def __exit__(self, a,b,c): pass
+        def imap_unordered(self, func, args_list): return [None]*len(args_list)
+    monkeypatch.setattr(dlmod.mp, 'Pool', DummyPool2)
+    monkeypatch.setattr(dlmod, 'tqdm', lambda it, total=None, desc=None: it)
+    info2 = {}
+    monkeypatch.setattr(dlmod.messagebox, 'showinfo', lambda title, msg: info2.update({'msg': msg}))
+    run_download(url, None, str(tmp_path), download_all=True, episode_list=[], workers=1)
+    assert '2 files saved' in info2.get('msg', '')
+    assert str(tmp_path.joinpath('example_com')) in info2.get('msg', '')
+
+def test_run_download_with_episode_list(tmp_path, monkeypatch):
+    # episode_list branch when find_episode_links empty
+    url = 'http://example.com/'
+    monkeypatch.setattr(dlmod, 'banner', lambda: None)
+    monkeypatch.setattr(dlmod, 'find_episode_links', lambda x: [])
+    # Override expand_ranges to specific list
+    monkeypatch.setattr(dlmod, 'expand_ranges', lambda lst: [1,3])
+    monkeypatch.setattr(dlmod.simpledialog, 'askstring', lambda *args, **kwargs: None)
+    class DummyTk:
+        def withdraw(self): pass
+        def destroy(self): pass
+    monkeypatch.setattr(dlmod.tk, 'Tk', DummyTk)
+    class DummyPool3:
+        def __init__(self, w): pass
+        def __enter__(self): return self
+        def __exit__(self, a,b,c): pass
+        def imap_unordered(self, func, args_list): return [None]*len(args_list)
+    monkeypatch.setattr(dlmod.mp, 'Pool', DummyPool3)
+    monkeypatch.setattr(dlmod, 'tqdm', lambda it, total=None, desc=None: it)
+    info3 = {}
+    monkeypatch.setattr(dlmod.messagebox, 'showinfo', lambda title, msg: info3.update({'msg': msg}))
+    run_download(url, None, str(tmp_path), download_all=False, episode_list=['1-3'], workers=1)
+    assert '2 files saved' in info3.get('msg', '')
+    assert str(tmp_path.joinpath('example_com')) in info3.get('msg', '') 
