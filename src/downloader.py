@@ -4,7 +4,7 @@ Downloader module for NovaStream.
 import os
 import re
 import logging
-import subprocess
+import subprocess  # nosec B404
 import multiprocessing as mp
 import requests
 from bs4 import BeautifulSoup
@@ -43,11 +43,14 @@ def download_episode(args):
     logging.info(f"Episode {num}: starting download from {url}")
     # Fetch episode page to extract title for filename
     try:
-        resp = requests.get(url)
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
         page_soup = BeautifulSoup(resp.text, 'html.parser')
-        raw_title = page_soup.title.string.strip()
-    except Exception:
+    except requests.RequestException as e:
+        logging.warning(f"Failed to fetch page content from {url}: {e}")
         raw_title = f"Episode {num}"
+    else:
+        raw_title = page_soup.title.string.strip() if page_soup.title else f"Episode {num}"
     # Clean title text for filename (allow spaces only)
     title_clean = re.sub(r'[^0-9a-zA-Z ]+', ' ', raw_title).strip()
     # get manifest URL(s)
@@ -75,7 +78,13 @@ def download_episode(args):
     # Build minimal working ffmpeg command
     cmd = ["ffmpeg", "-y", "-i", m3u8, "-c", "copy", outpath]
     # Run ffmpeg and capture output for better error reporting
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid)
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        preexec_fn=os.setsid
+    )  # nosec B603
+    # cmd is fully controlled, no shell=True
     FFMPEG_PROCS.append(proc)
     stdout_data, stderr_data = proc.communicate()
     returncode = proc.returncode
@@ -97,7 +106,13 @@ def download_episode(args):
             logging.info(f"[#{num}] retry {attempt}/{retries}")
             print(Fore.YELLOW + f"[#{num}] retry {attempt}/{retries}")
             # restart process
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid)
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                preexec_fn=os.setsid
+            )  # nosec B603
+            # cmd is fully controlled, no shell=True
             FFMPEG_PROCS.append(proc)
             stdout_data, stderr_data = proc.communicate()
             returncode = proc.returncode
@@ -173,4 +188,4 @@ def run_download(url, name_input, base_output, download_all, episode_list, worke
     root.withdraw()
     messagebox.showinfo("Done", f"✅ Done! {len(episodes)} files saved in:\n{drama_dir}")
     root.destroy()
-    logging.info("Session complete.") 
+    logging.info("Session complete.")

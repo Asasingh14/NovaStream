@@ -28,8 +28,8 @@ def main():
         # Load bundled icon.png from package data
         icon_path = resources.files(__name__).joinpath('assets/icon.png')
         root.iconphoto(False, tk.PhotoImage(file=str(icon_path)))
-    except Exception:
-        pass
+    except Exception as e:  # nosec B101
+        logging.warning(f"Failed to set window icon: {e}")
 
     # Menubar
     menubar = tk.Menu(root)
@@ -49,7 +49,8 @@ def main():
         logo = tk.PhotoImage(file='icon.png')
         ttk.Label(header, image=logo).grid(row=0, column=0)
         header.image = logo
-    except Exception:
+    except Exception as e:
+        logging.warning("Failed to load logo image: %s", e)
         ttk.Label(header, text="NovaStream", font=("Segoe UI", 16)).grid(row=0, column=0)
 
     # Main content frame
@@ -144,8 +145,8 @@ def main():
             for cfg in saved:
                 drama_queue.append(cfg)
                 queue_listbox.insert(tk.END, cfg['name'] or cfg['url'])
-    except Exception:
-        pass
+    except Exception as e:
+        logging.warning("Failed to load drama queue from file: %s", e)
     def save_queue():
         os.makedirs(os.path.dirname(queue_file), exist_ok=True)
         with open(queue_file, 'w') as f:
@@ -261,13 +262,13 @@ def main():
             stat.config(text="Cancelling...")
             try:
                 prog.stop()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.warning("Cancellation failed: %s", e)
             for proc in FFMPEG_PROCS[:]:
                 try:
                     os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.warning("Cancellation failed: %s", e)
             FFMPEG_PROCS.clear()
             if pool_holder['pool']:
                 pool_holder['pool'].terminate()
@@ -277,8 +278,8 @@ def main():
         for child in main_frame.winfo_children():
             try:
                 child.state(['disabled'])
-            except Exception:
-                pass
+            except Exception as e:
+                logging.warning("Failed to re-enable widget: %s", e)
         menubar.entryconfig("File", state="disabled")
         menubar.entryconfig("Help", state="disabled")
         # Background worker thread
@@ -327,8 +328,8 @@ def main():
                     pool.terminate()
                     try:
                         shutil.rmtree(drama_dir, ignore_errors=True)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.warning("Cleanup error while canceling: %s", e)
                     progress_win.after(0, lambda: status_bar.config(text="Canceled (cleanup done)"))
                     progress_win.after(0, progress_win.destroy)
                     progress_win.after(0, lambda: start_btn.config(state="normal"))
@@ -357,8 +358,8 @@ def main():
                 for child in main_frame.winfo_children():
                     try: 
                         child.state(['!disabled'])
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.warning("Failed to re-enable widget: %s", e)
                 menubar.entryconfig("File", state="normal")
                 menubar.entryconfig("Help", state="normal")
                 # mark queue item green and clear selection
