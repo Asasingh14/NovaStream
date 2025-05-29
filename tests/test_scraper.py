@@ -1,5 +1,6 @@
 from src.scraper import find_episode_links
-import logging, requests
+import logging
+import requests
 
 class DummyResp:
     def __init__(self, text):

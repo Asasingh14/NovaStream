@@ -1,6 +1,7 @@
 import time
 from src.manifest import get_manifest_urls
-import sys, types
+import sys
+import types
 
 class DummyReq:
     def __init__(self, url, headers):
