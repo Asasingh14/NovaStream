@@ -239,4 +239,38 @@ def test_run_download_with_episode_list(tmp_path, monkeypatch):
     monkeypatch.setattr(dlmod.messagebox, 'showinfo', lambda title, msg: info3.update({'msg': msg}))
     run_download(url, None, str(tmp_path), download_all=False, episode_list=['1-3'], workers=1)
     assert '2 files saved' in info3.get('msg', '')
-    assert str(tmp_path.joinpath('example_com')) in info3.get('msg', '') 
+    assert str(tmp_path.joinpath('example_com')) in info3.get('msg', '')
+
+def test_download_episode_failure_no_retries(tmp_path, capsys, monkeypatch):
+    # Manifest present but ffmpeg fails and no retries => error and final failure
+    monkeypatch.setattr(dlmod, 'get_manifest_urls', lambda url: {'http://x/media.m3u8'})
+    monkeypatch.setattr(dlmod.requests, 'get', lambda *args, **kwargs: (_ for _ in ()).throw(dlmod.requests.RequestException()))
+    class DummyPopenErr:
+        def __init__(self, *args, **kwargs):
+            self.returncode = 1
+        def communicate(self):
+            return (b'', b'fatal error')
+    monkeypatch.setattr(dlmod.subprocess, 'Popen', DummyPopenErr)
+    result = download_episode(('Show', 7, 'http://x', str(tmp_path)))
+    captured = capsys.readouterr()
+    assert result is False
+    assert 'ffmpeg error:' in captured.out
+    assert 'Download failed after 0 retries' in captured.out
+
+def test_download_episode_no_title(tmp_path, capsys, monkeypatch):
+    # HTML missing title tag falls back to default
+    html = '<html><head></head><body></body></html>'
+    class DummyResponse2:
+        def __init__(self, text): self.text = text
+        def raise_for_status(self): pass
+    monkeypatch.setattr(dlmod.requests, 'get', lambda *args, **kwargs: DummyResponse2(html))
+    monkeypatch.setattr(dlmod, 'get_manifest_urls', lambda url: {'http://x/media.m3u8'})
+    class DummyPopenOK2:
+        def __init__(self, *args, **kwargs): self.returncode = 0
+        def communicate(self): return (b'', b'')
+    monkeypatch.setattr(dlmod.subprocess, 'Popen', DummyPopenOK2)
+    result = download_episode(('Show', 8, 'http://x', str(tmp_path)))
+    captured = capsys.readouterr()
+    assert result is True
+    # Default title 'Episode 8' should appear in filename
+    assert 'Episode 08 - Episode 8.mp4' in captured.out 
