@@ -25,8 +25,8 @@ def get_manifest_urls(url, wait=10):
     # Try to auto-play video so the manifest is requested
     try:
         driver.execute_script("const v = document.querySelector('video'); if(v) v.play();")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Warning: Failed to auto-play video: {e}")
 
     # Wait for network requests to fire
     time.sleep(wait)

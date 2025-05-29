@@ -2,7 +2,6 @@
 Utilities for NovaStream.
 """
 
-import re
 from art import text2art
 from colorama import init as colorama_init, Fore
 

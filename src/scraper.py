@@ -4,6 +4,7 @@ Episode link scraper for NovaStream.
 import re
 import time
 import requests
+import logging
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from src.driver import get_driver
@@ -16,10 +17,11 @@ def find_episode_links(homepage_url):
     """
     # Static HTTP parse
     try:
-        r = requests.get(homepage_url)
+        r = requests.get(homepage_url, timeout=10)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
-    except Exception:
+    except requests.RequestException as e:
+        logging.warning(f"Failed to fetch homepage from {homepage_url}: {e}")
         soup = None
 
     links = []
@@ -47,8 +49,8 @@ def find_episode_links(homepage_url):
                     num = int(m.group(1))
                     full = urljoin(homepage_url, a["href"])
                     links.append((num, full))
-        except Exception:
-            pass
+        except Exception as e:
+            logging.warning(f"Selenium fallback scraping failed: {e}")
 
     # Deduplicate and sort by episode number
     unique = {num: url for num, url in links}

@@ -4,16 +4,14 @@ Downloader module for NovaStream.
 import os
 import re
 import logging
-import subprocess
+import subprocess  # nosec B404
 import multiprocessing as mp
-from multiprocessing.dummy import Pool as ThreadPool
 import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
-from colorama import init as colorama_init, Fore, Style
+from colorama import init as colorama_init, Fore
 import tkinter as tk
 from tkinter import messagebox, simpledialog
-import signal
 
 from src.manifest import get_manifest_urls
 from src.scraper import find_episode_links
@@ -25,23 +23,46 @@ colorama_init(autoreset=True)
 # Track ffmpeg processes for cancellation
 FFMPEG_PROCS = []
 
+def _safe_download_episode(args):
+    try:
+        return download_episode(args)
+    except Exception as e:
+        logging.error(f"Error in download_episode: {e}")
+        return False
+
 def download_episode(args):
-    drama_name, num, url, outdir = args
+    # Support throttle and retries if provided
+    if len(args) == 4:
+        drama_name, num, url, outdir = args
+        throttle_kbps = 0
+        retries = 0
+    elif len(args) == 6:
+        drama_name, num, url, outdir, throttle_kbps, retries = args
+    else:
+        raise ValueError(f"Invalid arguments: {args}")
     logging.info(f"Episode {num}: starting download from {url}")
     # Fetch episode page to extract title for filename
     try:
-        resp = requests.get(url)
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
         page_soup = BeautifulSoup(resp.text, 'html.parser')
-        raw_title = page_soup.title.string.strip()
-    except Exception:
+    except requests.RequestException as e:
+        logging.warning(f"Failed to fetch page content from {url}: {e}")
         raw_title = f"Episode {num}"
+    else:
+        raw_title = page_soup.title.string.strip() if page_soup.title else f"Episode {num}"
     # Clean title text for filename (allow spaces only)
     title_clean = re.sub(r'[^0-9a-zA-Z ]+', ' ', raw_title).strip()
     # get manifest URL(s)
-    manifests = get_manifest_urls(url)
+    try:
+        manifests = get_manifest_urls(url)
+    except Exception as e:
+        logging.error(f"Episode {num}: manifest retrieval error: {e}")
+        print(Fore.RED + f"[#{num}] Manifest retrieval error: {e}")
+        return False
     if not manifests:
         print(Fore.RED + f"[#{num}] No manifest found for {url}")
-        return
+        return False
     # pick first manifest
     m3u8 = manifests.pop()
     # Format display drama name
@@ -53,17 +74,20 @@ def download_episode(args):
         msg = f"[#{num}] Skipping download; file already exists: {out_filename}"
         logging.info(msg)
         print(Fore.YELLOW + msg)
-        return
-    cmd = [
-        "ffmpeg", "-y",
-        "-i", m3u8,
-        "-c", "copy",
-        outpath
-    ]
-    # Run ffmpeg quietly and track process for cancellation
-    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, preexec_fn=os.setsid)
+        return True
+    # Build minimal working ffmpeg command
+    cmd = ["ffmpeg", "-y", "-i", m3u8, "-c", "copy", outpath]
+    # Run ffmpeg and capture output for better error reporting
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        preexec_fn=os.setsid
+    )  # nosec B603
+    # cmd is fully controlled, no shell=True
     FFMPEG_PROCS.append(proc)
-    returncode = proc.wait()
+    stdout_data, stderr_data = proc.communicate()
+    returncode = proc.returncode
     try:
         FFMPEG_PROCS.remove(proc)
     except ValueError:
@@ -72,10 +96,41 @@ def download_episode(args):
         msg = f"[#{num}] Download complete → {outpath}"
         logging.info(msg)
         print(Fore.GREEN + msg)
+        return True
     else:
-        msg = f"[#{num}] ffmpeg failed"
+        err_msg = stderr_data.decode('utf-8', errors='replace').strip()
+        logging.error(f"[#{num}] ffmpeg returned code {returncode}: {err_msg}")
+        print(Fore.RED + f"[#{num}] ffmpeg error: {err_msg}")
+        # Retry logic
+        for attempt in range(1, retries+1):
+            logging.info(f"[#{num}] retry {attempt}/{retries}")
+            print(Fore.YELLOW + f"[#{num}] retry {attempt}/{retries}")
+            # restart process
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                preexec_fn=os.setsid
+            )  # nosec B603
+            # cmd is fully controlled, no shell=True
+            FFMPEG_PROCS.append(proc)
+            stdout_data, stderr_data = proc.communicate()
+            returncode = proc.returncode
+            try:
+                FFMPEG_PROCS.remove(proc)
+            except ValueError:
+                pass
+            if returncode == 0:
+                msg = f"[#{num}] Download complete on retry {attempt} → {outpath}"
+                logging.info(msg)
+                print(Fore.GREEN + msg)
+                return True
+        # If we reach here, all retries failed
+        last_err = stderr_data.decode('utf-8', errors='replace').strip()
+        msg = f"[#{num}] Download failed after {retries} retries. Last error: {last_err}"
         logging.error(msg)
         print(Fore.RED + msg)
+        return False
 
 def run_download(url, name_input, base_output, download_all, episode_list, workers):
     banner()
@@ -126,11 +181,11 @@ def run_download(url, name_input, base_output, download_all, episode_list, worke
     # Parallel download
     pool_args = [(drama_name, n, u, drama_dir) for n, u in episodes]
     with mp.Pool(workers) as pool:
-        for _ in tqdm(pool.imap_unordered(download_episode, pool_args), total=len(pool_args), desc="Downloading"):
+        for _ in tqdm(pool.imap_unordered(_safe_download_episode, pool_args), total=len(pool_args), desc="Downloading"):
             pass
 
     root = tk.Tk()
     root.withdraw()
     messagebox.showinfo("Done", f"✅ Done! {len(episodes)} files saved in:\n{drama_dir}")
     root.destroy()
-    logging.info("Session complete.") 
+    logging.info("Session complete.")

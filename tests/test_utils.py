@@ -1,4 +1,3 @@
-import pytest
 from src import expand_ranges
 
 

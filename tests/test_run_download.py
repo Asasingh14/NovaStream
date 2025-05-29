@@ -1,5 +1,4 @@
 import os
-import pytest
 import src.downloader as dlmod
 from src.downloader import run_download
 
