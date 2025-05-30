@@ -215,9 +215,9 @@ jobs:
         if: ${{ needs['run-tests-and-coverage'].result != 'success' || needs['codeql-analysis'].result != 'success' || needs['dependency-vulnerability-scan-safety'].result != 'success' || needs['build-macos-binary'].result != 'success' || needs['build-windows-binary'].result != 'success' || needs['build-linux-binary'].result != 'success' }}
         uses: tsickert/discord-webhook@v5.0.0
         with:
-          webhook-url: ${{ matrix.channel == 'ci-status' && secrets.DISCORD_WEBHOOK_URL_CI_STATUS || secrets.DISCORD_WEBHOOK_URL_PIPELINE_ERRORS }}
+          webhook-url: ${{ matrix.channel == 'ci-status' && secrets.DISCORD_WEBHOOK_URL_CI_STATUS || matrix.channel == 'pipeline-errors' && secrets.DISCORD_WEBHOOK_URL_PIPELINE_ERRORS || secrets.DISCORD_WEBHOOK_URL_PROJECT_NOVASTREAM }}
           embed-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          embed-title: ${{ matrix.channel == 'ci-status' && '💥 NovaStream CI Failure!' || '⛔ Pipeline Error' }}
+          embed-title: ${{ matrix.channel == 'ci-status' && '💥 NovaStream CI Failure!' || matrix.channel == 'pipeline-errors' && '⛔ Pipeline Error' || '🔴 Novastream Build Failed' }}
           embed-description: |
             ⚠️ **Commit:** [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
             👤 **Author:** `${{ github.actor }}`
