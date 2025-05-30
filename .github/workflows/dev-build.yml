@@ -55,6 +55,9 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
+      - name: Intentional failure (for testing)
+        run: exit 1
+
   codeql-analysis:
     if: ${{ !github.event.repository.private }}
     name: Static Code Analysis (CodeQL)
@@ -198,9 +201,14 @@ jobs:
         uses: tsickert/discord-webhook@v5.0.0
         with:
           webhook-url: ${{ matrix.channel == 'ci-status' && secrets.DISCORD_WEBHOOK_URL_CI_STATUS || secrets.DISCORD_WEBHOOK_URL_PROJECT_NOVASTREAM }}
-          embed-title: ${{ matrix.channel == 'ci-status' && '✅ CI Passed' || '🧪 Novastream Build Completed' }}
+          embed-url: ${{ github.run_url }}
+          embed-title: ${{ matrix.channel == 'ci-status' && '🚀 NovaStream CI Success!' || '🧪 Novastream Build Completed' }}
           embed-description: |
-            Commit `${{ github.sha }}` by `${{ github.actor }}` passed all checks.
+            📝 **Commit:** [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+            👤 **Author:** `${{ github.actor }}`
+            🌿 **Branch:** `${{ github.ref }}`
+            📦 **Repository:** `${{ github.repository }}`
+            🔗 **Pipeline Logs:** [View Logs](${{ github.run_url }})
           embed-color: 3066993
 
       - name: Notify failure
@@ -208,7 +216,11 @@ jobs:
         uses: tsickert/discord-webhook@v5.0.0
         with:
           webhook-url: ${{ matrix.channel == 'ci-status' && secrets.DISCORD_WEBHOOK_URL_CI_STATUS || secrets.DISCORD_WEBHOOK_URL_PIPELINE_ERRORS }}
-          embed-title: ${{ matrix.channel == 'ci-status' && '❌ CI Failed' || '⛔ Pipeline Error' }}
+          embed-url: ${{ github.run_url }}
+          embed-title: ${{ matrix.channel == 'ci-status' && '💥 NovaStream CI Failure!' || '⛔ Pipeline Error' }}
           embed-description: |
-            Commit `${{ github.sha }}` by `${{ github.actor }}` failed. See <${{ github.run_url }}>.
+            ⚠️ **Commit:** [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+            👤 **Author:** `${{ github.actor }}`
+            🌿 **Branch:** `${{ github.ref }}`
+            ❗ **Failure Details:** [View Logs](${{ github.run_url }})
           embed-color: 15158332
