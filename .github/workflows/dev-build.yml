@@ -197,7 +197,7 @@ jobs:
         channel: ["ci-status", "pipeline-errors", "project-novastream"]
     steps:
       - name: Notify success
-        if: ${{ success() && matrix.channel != 'pipeline-errors' }}
+        if: ${{ needs['run-tests-and-coverage'].result == 'success' && needs['codeql-analysis'].result == 'success' && needs['dependency-vulnerability-scan-safety'].result == 'success' && needs['build-macos-binary'].result == 'success' && needs['build-windows-binary'].result == 'success' && needs['build-linux-binary'].result == 'success' && matrix.channel != 'pipeline-errors' }}
         uses: tsickert/discord-webhook@v5.0.0
         with:
           webhook-url: ${{ matrix.channel == 'ci-status' && secrets.DISCORD_WEBHOOK_URL_CI_STATUS || secrets.DISCORD_WEBHOOK_URL_PROJECT_NOVASTREAM }}
@@ -212,7 +212,7 @@ jobs:
           embed-color: 3066993
 
       - name: Notify failure
-        if: ${{ failure() && matrix.channel != 'project-novastream' }}
+        if: ${{ (needs['run-tests-and-coverage'].result != 'success' || needs['codeql-analysis'].result != 'success' || needs['dependency-vulnerability-scan-safety'].result != 'success' || needs['build-macos-binary'].result != 'success' || needs['build-windows-binary'].result != 'success' || needs['build-linux-binary'].result != 'success') && matrix.channel != 'project-novastream' }}
         uses: tsickert/discord-webhook@v5.0.0
         with:
           webhook-url: ${{ matrix.channel == 'ci-status' && secrets.DISCORD_WEBHOOK_URL_CI_STATUS || secrets.DISCORD_WEBHOOK_URL_PIPELINE_ERRORS }}
