@@ -162,7 +162,7 @@ def download_episode(args):
                 return True
         # If we reach here, all retries failed
         last_err = stderr_data.decode('utf-8', errors='replace').strip()
-        msg = f"{drama_disp} [#{num}] Download failed after {retries} retries."
+        msg = f"{drama_disp} [#{num}] Download failed after {retries} retries. Last error: {last_err}"
         logging.error(msg)
         print(Fore.RED + msg)
         send_discord_notification(msg)
