@@ -179,6 +179,7 @@ jobs:
           path: dist/novastream
 
   discord-notify:
+    if: ${{ always() }}
     name: Discord Notifications
     runs-on: ubuntu-latest
     needs:
