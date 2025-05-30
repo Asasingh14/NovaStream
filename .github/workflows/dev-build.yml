@@ -201,26 +201,26 @@ jobs:
         uses: tsickert/discord-webhook@v5.0.0
         with:
           webhook-url: ${{ matrix.channel == 'ci-status' && secrets.DISCORD_WEBHOOK_URL_CI_STATUS || secrets.DISCORD_WEBHOOK_URL_PROJECT_NOVASTREAM }}
-          embed-url: ${{ github.run_url }}
+          embed-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           embed-title: ${{ matrix.channel == 'ci-status' && '🚀 NovaStream CI Success!' || '🧪 Novastream Build Completed' }}
           embed-description: |
             📝 **Commit:** [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
             👤 **Author:** `${{ github.actor }}`
-            🌿 **Branch:** `${{ github.ref }}`
-            📦 **Repository:** `${{ github.repository }}`
-            🔗 **Pipeline Logs:** [View Logs](${{ github.run_url }})
+            🌿 **Branch:** `${{ github.ref_name }}`
+            📦 **Repository:** <${{ github.server_url }}/${{ github.repository }}>
+            🔗 **Pipeline Logs:** <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}>
           embed-color: 3066993
 
       - name: Notify failure
-        if: ${{ (needs['run-tests-and-coverage'].result != 'success' || needs['codeql-analysis'].result != 'success' || needs['dependency-vulnerability-scan-safety'].result != 'success' || needs['build-macos-binary'].result != 'success' || needs['build-windows-binary'].result != 'success' || needs['build-linux-binary'].result != 'success') && matrix.channel != 'project-novastream' }}
+        if: ${{ needs['run-tests-and-coverage'].result != 'success' || needs['codeql-analysis'].result != 'success' || needs['dependency-vulnerability-scan-safety'].result != 'success' || needs['build-macos-binary'].result != 'success' || needs['build-windows-binary'].result != 'success' || needs['build-linux-binary'].result != 'success' }}
         uses: tsickert/discord-webhook@v5.0.0
         with:
           webhook-url: ${{ matrix.channel == 'ci-status' && secrets.DISCORD_WEBHOOK_URL_CI_STATUS || secrets.DISCORD_WEBHOOK_URL_PIPELINE_ERRORS }}
-          embed-url: ${{ github.run_url }}
+          embed-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           embed-title: ${{ matrix.channel == 'ci-status' && '💥 NovaStream CI Failure!' || '⛔ Pipeline Error' }}
           embed-description: |
             ⚠️ **Commit:** [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
             👤 **Author:** `${{ github.actor }}`
-            🌿 **Branch:** `${{ github.ref }}`
-            ❗ **Failure Details:** [View Logs](${{ github.run_url }})
+            🌿 **Branch:** `${{ github.ref_name }}`
+            ❗ **Failure Details:** <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}>
           embed-color: 15158332
