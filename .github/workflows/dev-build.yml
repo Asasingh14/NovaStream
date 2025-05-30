@@ -55,9 +55,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Intentional failure (for testing)
-        run: exit 1
-
   codeql-analysis:
     if: ${{ !github.event.repository.private }}
     name: Static Code Analysis (CodeQL)
