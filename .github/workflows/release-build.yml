@@ -91,7 +91,7 @@ jobs:
         if: matrix.platform == 'windows'
         shell: cmd
         run: |
-          pyinstaller --clean --strip --windowed --onefile --name NovaStream${{ matrix.ext }} ^
+          pyinstaller --clean --windowed --onefile --name NovaStream${{ matrix.ext }} ^
             --exclude-module seleniumwire ^
             --exclude-module selenium ^
             --exclude-module webdriver_manager ^
