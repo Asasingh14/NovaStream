@@ -12,12 +12,10 @@ from tqdm import tqdm
 from colorama import init as colorama_init, Fore
 import tkinter as tk
 from tkinter import messagebox, simpledialog
-import socket
 
 from src.manifest import get_manifest_urls
 from src.scraper import find_episode_links
 from src.utils import banner, expand_ranges
-from src.notifications import send_discord_notification
 
 # initialize colorama
 colorama_init(autoreset=True)
@@ -33,6 +31,7 @@ def _safe_download_episode(args):
         return False
 
 def download_episode(args):
+    # Support throttle and retries if provided
     if len(args) == 4:
         drama_name, num, url, outdir = args
         throttle_kbps = 0
@@ -41,9 +40,7 @@ def download_episode(args):
         drama_name, num, url, outdir, throttle_kbps, retries = args
     else:
         raise ValueError(f"Invalid arguments: {args}")
-    # Friendly display name
-    drama_disp = drama_name.replace('_', ' ')
-    logging.info(f"{drama_disp} [#{num}]: starting download from {url}")
+    logging.info(f"Episode {num}: starting download from {url}")
     # Fetch episode page to extract title for filename
     try:
         resp = requests.get(url, timeout=10)
@@ -61,37 +58,25 @@ def download_episode(args):
         manifests = get_manifest_urls(url)
     except Exception as e:
         logging.error(f"Episode {num}: manifest retrieval error: {e}")
-        msg = f"{drama_disp} [#{num}] Manifest retrieval error: {e}"
-        print(Fore.RED + msg)
-        send_discord_notification(msg)
+        print(Fore.RED + f"[#{num}] Manifest retrieval error: {e}")
         return False
     if not manifests:
-        msg = f"{drama_disp} [#{num}] No manifest found for {url}"
-        print(Fore.RED + msg)
-        send_discord_notification(msg)
+        print(Fore.RED + f"[#{num}] No manifest found for {url}")
         return False
-    # Select manifest URL deterministically (sorted)
-    manifests_list = sorted(manifests)
-    m3u8 = manifests_list[0]
+    # pick first manifest
+    m3u8 = manifests.pop()
     # Format display drama name
     drama_disp = drama_name.replace('_', ' ')
     out_filename = f"{drama_disp} - Episode {num:02d} - {title_clean}.mp4"
     outpath = os.path.join(outdir, out_filename)
     # Resume: skip if file exists
     if os.path.exists(outpath):
-        msg = f"{drama_disp} [#{num}] Skipping download; file already exists: {out_filename}"
+        msg = f"[#{num}] Skipping download; file already exists: {out_filename}"
         logging.info(msg)
         print(Fore.YELLOW + msg)
-        send_discord_notification(msg)
         return True
-    # Build minimal working ffmpeg command with HLS options
-    cmd = [
-        "ffmpeg", "-y",
-        "-protocol_whitelist", "file,http,https,tcp,tls",
-        "-allowed_extensions", "ALL",
-        "-i", m3u8,
-        "-c", "copy", outpath
-    ]
+    # Build minimal working ffmpeg command
+    cmd = ["ffmpeg", "-y", "-i", m3u8, "-c", "copy", outpath]
     # Run ffmpeg and capture output for better error reporting
     proc = subprocess.Popen(
         cmd,
@@ -103,35 +88,23 @@ def download_episode(args):
     FFMPEG_PROCS.append(proc)
     stdout_data, stderr_data = proc.communicate()
     returncode = proc.returncode
-    # If killed by signal (e.g., user cancellation), clean up and abort without retries
-    if returncode < 0:
-        try:
-            os.remove(outpath)
-        except Exception:
-            pass
-        return False
     try:
         FFMPEG_PROCS.remove(proc)
     except ValueError:
         pass
     if returncode == 0:
-        msg = f"{drama_disp} [#{num}] Download complete → {out_filename}"
+        msg = f"[#{num}] Download complete → {outpath}"
         logging.info(msg)
         print(Fore.GREEN + msg)
-        send_discord_notification(msg)
         return True
     else:
         err_msg = stderr_data.decode('utf-8', errors='replace').strip()
-        logging.error(f"{drama_disp} [#{num}] ffmpeg returned code {returncode}: {err_msg}")
-        msg = f"{drama_disp} [#{num}] ffmpeg error: {err_msg}"
-        print(Fore.RED + msg)
-        send_discord_notification(msg)
+        logging.error(f"[#{num}] ffmpeg returned code {returncode}: {err_msg}")
+        print(Fore.RED + f"[#{num}] ffmpeg error: {err_msg}")
         # Retry logic
         for attempt in range(1, retries+1):
-            logging.info(f"{drama_disp} [#{num}] retry {attempt}/{retries}")
-            retry_msg = f"{drama_disp} [#{num}] retry {attempt}/{retries}"
-            print(Fore.YELLOW + retry_msg)
-            send_discord_notification(retry_msg)
+            logging.info(f"[#{num}] retry {attempt}/{retries}")
+            print(Fore.YELLOW + f"[#{num}] retry {attempt}/{retries}")
             # restart process
             proc = subprocess.Popen(
                 cmd,
@@ -143,29 +116,20 @@ def download_episode(args):
             FFMPEG_PROCS.append(proc)
             stdout_data, stderr_data = proc.communicate()
             returncode = proc.returncode
-            # If killed by signal during retry, remove partial file and abort
-            if returncode < 0:
-                try:
-                    os.remove(outpath)
-                except Exception:
-                    pass
-                return False
             try:
                 FFMPEG_PROCS.remove(proc)
             except ValueError:
                 pass
             if returncode == 0:
-                msg = f"{drama_disp} [#{num}] Download complete on retry {attempt} → {out_filename}"
+                msg = f"[#{num}] Download complete on retry {attempt} → {outpath}"
                 logging.info(msg)
                 print(Fore.GREEN + msg)
-                send_discord_notification(msg)
                 return True
         # If we reach here, all retries failed
         last_err = stderr_data.decode('utf-8', errors='replace').strip()
-        msg = f"{drama_disp} [#{num}] Download failed after {retries} retries. Last error: {last_err}"
+        msg = f"[#{num}] Download failed after {retries} retries. Last error: {last_err}"
         logging.error(msg)
         print(Fore.RED + msg)
-        send_discord_notification(msg)
         return False
 
 def run_download(url, name_input, base_output, download_all, episode_list, workers):
@@ -222,7 +186,6 @@ def run_download(url, name_input, base_output, download_all, episode_list, worke
 
     root = tk.Tk()
     root.withdraw()
-    hostname = socket.gethostname()
-    messagebox.showinfo("Done", f"✅ Done on {hostname}! {len(episodes)} files saved.")
+    messagebox.showinfo("Done", f"✅ Done! {len(episodes)} files saved in:\n{drama_dir}")
     root.destroy()
     logging.info("Session complete.")

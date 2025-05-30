@@ -1,8 +1,6 @@
 """
 GUI application for NovaStream.
 """
-import sys
-from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
 import importlib.resources as resources
@@ -16,25 +14,22 @@ import signal
 from src.downloader import FFMPEG_PROCS
 import logging
 import json
-import socket
 
 from src.scraper import find_episode_links
 from src.utils import expand_ranges
 from src.downloader import download_episode
-from src.notifications import set_discord_webhook_url
 
-def resource_path(relative_path):
-    # Works both during dev and with PyInstaller bundles
-    try:
-        base_path = sys._MEIPASS  # PyInstaller runtime
-    except AttributeError:
-        base_path = Path(__file__).resolve().parent
-    return Path(base_path) / relative_path
 
 def main():
     root = tk.Tk()
     root.title("NovaStream")
-    # Icon will be loaded lazily after UI appears
+    # Set window icon
+    try:
+        # Load bundled icon.png from package data
+        icon_path = resources.files(__name__).joinpath('assets/icon.png')
+        root.iconphoto(False, tk.PhotoImage(file=str(icon_path)))
+    except Exception as e:  # nosec B101
+        logging.warning(f"Failed to set window icon: {e}")
 
     # Menubar
     menubar = tk.Menu(root)
@@ -47,10 +42,16 @@ def main():
     menubar.add_cascade(label="Help", menu=help_menu)
     root.config(menu=menubar)
 
-    # # Header with logo
+    # Header with logo
     header = ttk.Frame(root, padding=(10,10))
     header.grid(row=0, column=0, sticky="EW")
-    ttk.Label(header, text="NovaStream", font=("Segoe UI", 16)).grid(row=0, column=0)
+    try:
+        logo = tk.PhotoImage(file='icon.png')
+        ttk.Label(header, image=logo).grid(row=0, column=0)
+        header.image = logo
+    except Exception as e:
+        logging.warning("Failed to load logo image: %s", e)
+        ttk.Label(header, text="NovaStream", font=("Segoe UI", 16)).grid(row=0, column=0)
 
     # Main content frame
     main_frame = ttk.Frame(root, padding=(20,10))
@@ -72,87 +73,49 @@ def main():
     throttle_var = tk.IntVar(value=0)  # KB/s, 0 = unlimited
     retries_var = tk.IntVar(value=3)
     schedule_var = tk.IntVar(value=0)  # Delay start in minutes
-    webhook_var = tk.StringVar(value="")  # Discord webhook URL
-    media_var = tk.StringVar(value="Series")  # Media type: Series or Movie
-    # Load persistent settings
-    settings_file = 'data/settings.json'
-    try:
-        os.makedirs(os.path.dirname(settings_file), exist_ok=True)
-        with open(settings_file, 'r') as sf:
-            cfg = json.load(sf)
-            webhook_var.set(cfg.get('webhook_url', ''))
-            # Apply loaded webhook URL to notifications immediately
-            set_discord_webhook_url(webhook_var.get().strip())
-    except Exception:
-        pass
-
-    # Persist webhook URL immediately when changed
-    def save_settings(*args):
-        try:
-            os.makedirs(os.path.dirname(settings_file), exist_ok=True)
-            with open(settings_file, 'w') as sf:
-                json.dump({'webhook_url': webhook_var.get().strip()}, sf)
-            # Apply new webhook URL to notifications immediately
-            set_discord_webhook_url(webhook_var.get().strip())
-        except Exception as e:
-            logging.warning(f"Failed to save webhook setting: {e}")
-
-    # Trace changes to webhook_var for persistence and runtime update
-    try:
-        webhook_var.trace_add('write', save_settings)
-    except AttributeError:
-        webhook_var.trace('w', save_settings)
 
     # Input fields
-    ttk.Label(main_frame, text="Media URL:").grid(row=0, column=0, sticky="E", pady=5)
+    ttk.Label(main_frame, text="Drama URL:").grid(row=0, column=0, sticky="E", pady=5)
     ttk.Entry(main_frame, textvariable=url_var, width=40).grid(row=0, column=1, columnspan=2, sticky="EW", pady=5)
 
-    ttk.Label(main_frame, text="Title:").grid(row=1, column=0, sticky="E", pady=5)
+    ttk.Label(main_frame, text="Drama Name:").grid(row=1, column=0, sticky="E", pady=5)
     ttk.Entry(main_frame, textvariable=name_var, width=40).grid(row=1, column=1, columnspan=2, sticky="EW", pady=5)
 
     ttk.Label(main_frame, text="Output Folder:").grid(row=2, column=0, sticky="E", pady=5)
     ttk.Entry(main_frame, textvariable=output_var, width=30).grid(row=2, column=1, sticky="EW", pady=5)
     ttk.Button(main_frame, text="Browse...", command=lambda: output_var.set(filedialog.askdirectory())).grid(row=2, column=2, sticky="W", padx=5)
 
-    # Media type selection (Series or Movie)
-    ttk.Label(main_frame, text="Type:").grid(row=3, column=0, sticky="E", pady=5)
-    ttk.Combobox(main_frame, textvariable=media_var, values=["Series","Movie"], state="readonly").grid(row=3, column=1, columnspan=2, sticky="W", pady=5)
-    # Series controls shifted down by 1
     all_check = ttk.Checkbutton(main_frame, text="Download ALL episodes", variable=all_var)
-    all_check.grid(row=4, column=0, columnspan=3, sticky="W", pady=5)
+    all_check.grid(row=3, column=0, columnspan=3, sticky="W", pady=5)
 
-    episodes_label = ttk.Label(main_frame, text="Episodes (e.g. 1,3-5):")
-    episodes_label.grid(row=5, column=0, sticky="E", pady=5)
+    ttk.Label(main_frame, text="Episodes (e.g. 1,3-5):").grid(row=4, column=0, sticky="E", pady=5)
     episodes_entry = ttk.Entry(main_frame, textvariable=episodes_var, width=40)
-    episodes_entry.grid(row=5, column=1, columnspan=2, sticky="EW", pady=5)
+    episodes_entry.grid(row=4, column=1, columnspan=2, sticky="EW", pady=5)
 
-    ttk.Label(main_frame, text="Workers:").grid(row=6, column=0, sticky="E", pady=5)
+    ttk.Label(main_frame, text="Workers:").grid(row=5, column=0, sticky="E", pady=5)
     worker_scale = tk.Scale(main_frame, from_=1, to=mp.cpu_count(), variable=workers_var, orient="horizontal", resolution=1)
-    worker_scale.grid(row=6, column=1, sticky="EW", pady=5)
-    ttk.Label(main_frame, textvariable=workers_var).grid(row=6, column=2, sticky="W", padx=(5,0))
+    worker_scale.grid(row=5, column=1, sticky="EW", pady=5)
+    ttk.Label(main_frame, textvariable=workers_var).grid(row=5, column=2, sticky="W", padx=(5,0))
 
-    ttk.Label(main_frame, text="Max Rate (Mbps):").grid(row=7, column=0, sticky="E", pady=5)
+    # Max download rate control (Mbps)
+    ttk.Label(main_frame, text="Max Rate (Mbps):").grid(row=6, column=0, sticky="E", pady=5)
     throttle_scale = tk.Scale(main_frame, from_=0, to=1000, variable=throttle_var, orient="horizontal", resolution=1)
-    throttle_scale.grid(row=7, column=1, sticky="EW", pady=5)
+    throttle_scale.grid(row=6, column=1, sticky="EW", pady=5)
     # Display current rate
-    ttk.Label(main_frame, textvariable=throttle_var).grid(row=7, column=2, sticky="W", padx=(5,0))
+    ttk.Label(main_frame, textvariable=throttle_var).grid(row=6, column=2, sticky="W", padx=(5,0))
     # Manual rate entry under slider
     throttle_entry = ttk.Spinbox(main_frame, from_=0, to=1000, textvariable=throttle_var, width=6)
-    throttle_entry.grid(row=8, column=1, sticky="W", pady=(0,5))
+    throttle_entry.grid(row=7, column=1, sticky="W", pady=(0,5))
 
-    ttk.Label(main_frame, text="Start Delay (min):").grid(row=9, column=0, sticky="E", pady=5)
+    # Start delay scheduling (minutes)
+    ttk.Label(main_frame, text="Start Delay (min):").grid(row=8, column=0, sticky="E", pady=5)
     schedule_scale = tk.Scale(main_frame, from_=0, to=1440, variable=schedule_var, orient="horizontal", resolution=1)
-    schedule_scale.grid(row=9, column=1, sticky="EW", pady=5)
-    ttk.Label(main_frame, textvariable=schedule_var).grid(row=9, column=2, sticky="W", padx=(5,0))
+    schedule_scale.grid(row=8, column=1, sticky="EW", pady=5)
+    ttk.Label(main_frame, textvariable=schedule_var).grid(row=8, column=2, sticky="W", padx=(5,0))
 
     # Retry attempts
-    ttk.Label(main_frame, text="Retries:").grid(row=10, column=0, sticky="E", pady=5)
-    ttk.Spinbox(main_frame, from_=0, to=10, textvariable=retries_var, width=5).grid(row=10, column=1, sticky="W", pady=5)
-
-    # Discord Webhook URL (persistent and editable)
-    ttk.Label(main_frame, text="Discord Webhook URL:").grid(row=11, column=0, sticky="E", pady=5)
-    webhook_entry = ttk.Entry(main_frame, textvariable=webhook_var, width=50)
-    webhook_entry.grid(row=11, column=1, columnspan=2, sticky="EW", pady=5)
+    ttk.Label(main_frame, text="Retries:").grid(row=9, column=0, sticky="E", pady=5)
+    ttk.Spinbox(main_frame, from_=0, to=10, textvariable=retries_var, width=5).grid(row=9, column=1, sticky="W", pady=5)
 
     main_frame.columnconfigure(1, weight=1)
 
@@ -160,7 +123,7 @@ def main():
 
     # Buttons row
     btn_frame = ttk.Frame(main_frame)
-    btn_frame.grid(row=12, column=0, columnspan=3, pady=(10,0))
+    btn_frame.grid(row=10, column=0, columnspan=3, pady=(10,0))
     start_btn = ttk.Button(btn_frame, text="Start")
     start_btn.pack(side="right", padx=5)
 
@@ -169,7 +132,7 @@ def main():
     queue_file = 'data/drama_queue.json'
     queue_frame = ttk.Frame(root, padding=(5,5), relief="groove")
     queue_frame.grid(row=1, column=1, rowspan=10, sticky="NSW", padx=(5,0))
-    ttk.Label(queue_frame, text="Media Queue").pack()
+    ttk.Label(queue_frame, text="Drama Queue").pack()
     queue_listbox = tk.Listbox(queue_frame, width=40)
     queue_listbox.pack(fill="both", expand=True)
     btn_qf = ttk.Frame(queue_frame)
@@ -279,7 +242,6 @@ def main():
 
     def download_series(target_index=None):
         # Threaded download with responsive UI
-        cancel_flag['canceled'] = False
         progress_win = tk.Toplevel(root)
         progress_win.title("Downloading...")
         progress_win.resizable(False, False)
@@ -295,52 +257,31 @@ def main():
         cancel_btn_popup = ttk.Button(progress_win, text="Cancel")
         cancel_btn_popup.pack(pady=(0,10))
         def on_popup_cancel():
-            # Set cancellation flag and disable cancel button
             cancel_flag['canceled'] = True
             cancel_btn_popup.config(text="Cancelling...", state="disabled")
             stat.config(text="Cancelling...")
-            # Stop progress indicator
             try:
                 prog.stop()
             except Exception as e:
                 logging.warning("Cancellation failed: %s", e)
-            # Kill any running ffmpeg processes
             for proc in FFMPEG_PROCS[:]:
                 try:
                     os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
                 except Exception as e:
                     logging.warning("Cancellation failed: %s", e)
             FFMPEG_PROCS.clear()
-            # Terminate download pool
             if pool_holder['pool']:
-                try:
-                    pool_holder['pool'].terminate()
-                except Exception as e:
-                    logging.warning(f"Failed to terminate download pool: {e}")
-                finally:
-                    pool_holder['pool'] = None
-            # Release modal grab and close progress window
-            try:
-                progress_win.grab_release()
-            except Exception:
-                pass
-            try:
-                progress_win.destroy()
-            except Exception:
-                pass
-            # Re-enable main application controls
-            start_btn.config(state="normal")
-            for child in main_frame.winfo_children():
-                if child is webhook_entry:
-                    continue
-                try:
-                    child.config(state='normal')
-                except Exception:
-                    pass
-            menubar.entryconfig("File", state="normal")
-            menubar.entryconfig("Help", state="normal")
+                pool_holder['pool'].terminate()
         cancel_btn_popup.config(command=on_popup_cancel)
-
+        # Disable main controls
+        start_btn.config(state="disabled")
+        for child in main_frame.winfo_children():
+            try:
+                child.state(['disabled'])
+            except Exception as e:
+                logging.warning("Failed to re-enable widget: %s", e)
+        menubar.entryconfig("File", state="disabled")
+        menubar.entryconfig("Help", state="disabled")
         # Background worker thread
         def worker():
             # Gather parameters
@@ -355,13 +296,6 @@ def main():
             drama_name = name_input.replace(" ", "_") if name_input else re.sub(r'[^0-9a-zA-Z]+','_',url.rstrip("/").split("/")[-1])
             drama_dir = os.path.join(base_output, drama_name)
             os.makedirs(drama_dir, exist_ok=True)
-            # Persist and configure Discord webhook for notifications
-            try:
-                with open(settings_file, 'w') as sf:
-                    json.dump({'webhook_url': webhook_var.get().strip()}, sf)
-            except Exception as e:
-                logging.warning(f"Failed to save webhook setting: {e}")
-            set_discord_webhook_url(webhook_var.get().strip())
             # Resolve episodes
             m = re.search(r"episode[-_](\d+)", url, re.IGNORECASE)
             if m:
@@ -397,15 +331,12 @@ def main():
                     except Exception as e:
                         logging.warning("Cleanup error while canceling: %s", e)
                     progress_win.after(0, lambda: status_bar.config(text="Canceled (cleanup done)"))
-                    progress_win.after(0, lambda: progress_win.grab_release())
                     progress_win.after(0, progress_win.destroy)
                     progress_win.after(0, lambda: start_btn.config(state="normal"))
                     for child in main_frame.winfo_children():
-                        # re-enable widget: try ttk state(), fallback to config
-                        progress_win.after(0, lambda c=child: (c.state(['!disabled']) if hasattr(c,'state') else c.config(state='normal')))
+                        progress_win.after(0, lambda c=child: c.state(['!disabled']))
                     menubar.after(0, lambda: menubar.entryconfig("File", state="normal"))
                     menubar.after(0, lambda: menubar.entryconfig("Help", state="normal"))
-                    # Reset cancel flag for future downloads
                     cancel_flag['canceled'] = False
                     return
                 completed += 1
@@ -420,26 +351,15 @@ def main():
             progress_win.after(0, lambda: status_bar.config(text="Completed"))
             def on_finish():
                 progress_win.destroy()
-                hostname = socket.gethostname()
-                msg = f"✅ Done on {hostname}! {successes} succeeded, {failures} failed."
+                msg = f"✅ Done! {successes} succeeded, {failures} failed. Files saved in:\n{drama_dir}"
                 messagebox.showinfo("Done", msg)
                 logging.info(f"Session complete: {successes} succeeded, {failures} failed.")
                 start_btn.config(state="normal")
                 for child in main_frame.winfo_children():
-                    # leave webhook entry enabled
-                    if child is webhook_entry:
-                        continue
-                    # re-enable widget: try ttk state(), fallback to config
-                    if hasattr(child, 'state'):
-                        try:
-                            child.state(['!disabled'])
-                            continue
-                        except Exception as e:
-                            logging.warning("Failed to re-enable widget via state(): %s", e)
-                    try:
-                        child.config(state='normal')
+                    try: 
+                        child.state(['!disabled'])
                     except Exception as e:
-                        logging.warning("Failed to re-enable widget via config: %s", e)
+                        logging.warning("Failed to re-enable widget: %s", e)
                 menubar.entryconfig("File", state="normal")
                 menubar.entryconfig("Help", state="normal")
                 # mark queue item green and clear selection
@@ -451,48 +371,25 @@ def main():
         Thread(target=worker, daemon=True).start()
 
     def on_start():
-        # Determine if running queued items or single URL
-        if drama_queue:
-            for idx, cfg in enumerate(drama_queue):
-                def start_cfg(i, c):
-                    # apply to hidden vars then launch
-                    url_var.set(c['url'])
-                    name_var.set(c['name'])
-                    output_var.set(c['output'])
-                    all_var.set(c['download_all'])
-                    episodes_var.set(c['episode_list'])
-                    workers_var.set(c['workers'])
-                    throttle_var.set(c['throttle'])
-                    retries_var.set(c['retries'])
-                    download_series(i)
+        # Start concurrent downloads for all queued dramas
+        for idx, cfg in enumerate(drama_queue):
+            def start_cfg(i, c):
+                # apply to hidden vars then launch
+                url_var.set(c['url'])
+                name_var.set(c['name'])
+                output_var.set(c['output'])
+                all_var.set(c['download_all'])
+                episodes_var.set(c['episode_list'])
+                workers_var.set(c['workers'])
+                throttle_var.set(c['throttle'])
+                retries_var.set(c['retries'])
+                download_series(i)
             Thread(target=lambda i=idx, c=cfg: start_cfg(i, c), daemon=True).start()
-        else:
-            # single-URL download
-            download_series(None)
 
     start_btn.config(command=on_start)
 
     # Dynamic control enabling/disabling based on input
     def update_controls(*args):
-        # Show/hide episode controls based on media type
-        media_type = media_var.get()
-        if media_type == 'Movie':
-            # hide series-specific controls
-            all_check.grid_remove()
-            episodes_label.grid_remove()
-            episodes_entry.grid_remove()
-            # enable start if queue has items OR URL present
-            url_ok = bool(url_var.get().strip())
-            if drama_queue or url_ok:
-                start_btn.config(state='normal')
-            else:
-                start_btn.config(state='disabled')
-            return
-        else:
-            # show series controls
-            all_check.grid()
-            episodes_label.grid()
-            episodes_entry.grid()
         # Toggle episodes entry vs all checkbox
         if all_var.get():
             episodes_entry.config(state='disabled')
@@ -514,19 +411,9 @@ def main():
     url_var.trace('w', update_controls)
     episodes_var.trace('w', update_controls)
     all_var.trace('w', update_controls)
-    media_var.trace('w', update_controls)
     # Initialize control states
     update_controls()
 
-    def _load_icon():
-        try:
-            icon_path = resources.files('src').joinpath('assets/icon.png')
-            img = tk.PhotoImage(file=str(icon_path))
-            root.iconphoto(False, img)
-            root._icon_img = img
-        except Exception as e:
-            logging.warning(f"Failed to set window icon: {e}")
-    root.after_idle(_load_icon)
     root.mainloop()
 
 
