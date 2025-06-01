@@ -10,4 +10,5 @@ safety
 ruff
 
 # Utilities
-pipreqs 
+pipreqs
+bump2version 
