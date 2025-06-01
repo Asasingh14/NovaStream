@@ -34,6 +34,7 @@
 2. [Usage](#usage)  
    - [Graphical User Interface](#graphical-user-interface)  
    - [Programmatic API](#programmatic-api)  
+   - [Example Script](#example-script)  
 3. [Development](#development)  
 4. [Testing](#testing)  
 5. [Contributing](#contributing)  
@@ -83,17 +84,14 @@ Then:
 
 ### Programmatic API
 
-```python
-from src import run_download
+Use the `run_download` function to programmatically download streams. For a full example script, see [examples/basic_usage.py](examples/basic_usage.py).
 
-run_download(
-    url="https://example.com/show",
-    name_input="MyDrama",
-    base_output="downloads",
-    download_all=True,
-    episode_list="",
-    workers=4
-)
+### Example Script
+
+A standalone example script demonstrating programmatic usage is available at [examples/basic_usage.py](examples/basic_usage.py). You can execute it with:
+
+```bash
+python examples/basic_usage.py
 ```
 
 ---
@@ -171,16 +169,16 @@ NovaStream uses GitHub Actions:
 
 ## 🛣️ Roadmap
 
+| Status        | Feature                                                         |
+|---------------|-----------------------------------------------------------------|
+| ✅ Completed  | Programmatic download interface                                 |
+| ✅ Completed  | Basic GUI for stream selection                                  |
+| ✅ Completed  | Multi-threaded engine                                           |
+| ✅ Completed  | Auto-update mechanism via GitHub Releases                       |
+| ⏳ Planned     | Subtitle (.vtt) merging                                         |
+| ⏳ Planned     | Full settings GUI                                               |
+| 🤖 Planned    | Discord bot integration (keyword extraction & API-driven download) |
+
 ---
 
-- Basic GUI for stream selection  
-- Programmatic download interface  
-- Multi-threaded engine  
-- Drag-and-drop episode links  
-- Subtitle (.vtt) merging  
-- Auto-update mechanism  
-- Full settings GUI  
-
----
-
-Built by d4rkw3bd31ty
+_Built by [d4rkw3bd31ty](https://github.com/Asasingh14)_
