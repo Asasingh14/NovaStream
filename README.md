@@ -94,6 +94,11 @@ A standalone example script demonstrating programmatic usage is available at [ex
 python examples/basic_usage.py
 ```
 
+### Advanced Examples
+
+- [CSV Batch Download](examples/csv_batch_download.py): Run multiple downloads based on a CSV file (`downloads.csv`).
+- [Scheduled Download](examples/scheduled_download.py): Schedule a download to start at 2 AM local time.
+
 ---
 
 ## 🛠️ Development

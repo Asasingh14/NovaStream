@@ -12,8 +12,8 @@ def main():
         url="https://example.com/show",
         name_input="MyDrama",
         base_output="downloads",
-        download_all=True,
-        episode_list="",  # e.g., "1,3-5"
+        download_all=True,  # True to download all episodes
+        episode_list="",  # e.g., "1,3-5" for specific episodes; leave empty for all
         workers=4
     )
 
