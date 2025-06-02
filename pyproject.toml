@@ -27,4 +27,8 @@ dependencies = [
 novastream = "src.gui:main"
 
 [tool.setuptools.package-data]
-"src" = ["assets/icon.png"] 
+"src" = ["assets/icon.png"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src", "src.*"] 
