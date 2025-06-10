@@ -79,6 +79,14 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Fix License Headers
+        run: |
+          license-eye -v header fix
+
+      - name: Check License Headers
+        run: |
+          license-eye -v header check
+
   binary-security-scan:
     name: Binary Security Scan
     needs: [build-macos-binary, build-windows-binary, build-linux-binary]
@@ -109,13 +117,10 @@ jobs:
         with:
           fetch-depth: 0
       - name: CodeFactor Analysis
-        uses: codefactor/codefactor-action@v1
+        uses: codefactor/codefactor-action@v2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Optional: Set minimum grade (A-F)
-          minimum-grade: C
-          # Optional: Set maximum issues
-          max-issues: 10
+          token: ${{ secrets.GITHUB_TOKEN }}
+          mode: upload
 
   codeql-analysis:
     if: ${{ !github.event.repository.private }}
