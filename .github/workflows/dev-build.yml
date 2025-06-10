@@ -100,20 +100,6 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
 
-  sonarcloud-scan:
-    name: SonarCloud Scan
-    runs-on: ubuntu-latest
-    needs: run-tests-and-coverage
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
   codeql-analysis:
     if: ${{ !github.event.repository.private }}
     name: Static Code Analysis (CodeQL)
