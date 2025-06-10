@@ -18,6 +18,8 @@ import json
 from src.scraper import find_episode_links
 from src.utils import expand_ranges
 from src.downloader import download_episode
+from src import __version__ as CURRENT_VERSION
+from src.updater import check_for_update, perform_update
 
 
 def main():
@@ -26,32 +28,48 @@ def main():
     # Set window icon
     try:
         # Load bundled icon.png from package data
-        icon_path = resources.files(__name__).joinpath('assets/icon.png')
+        pkg = __package__ or 'src'
+        icon_path = resources.files(pkg).joinpath('assets', 'icon.png')
         root.iconphoto(False, tk.PhotoImage(file=str(icon_path)))
     except Exception as e:  # nosec B101
-        logging.warning(f"Failed to set window icon: {e}")
+        logging.info(f"Window icon not set: {e}")
 
     # Menubar
     menubar = tk.Menu(root)
     file_menu = tk.Menu(menubar, tearoff=False)
     file_menu.add_command(label="Exit", command=root.destroy)
     menubar.add_cascade(label="File", menu=file_menu)
+    # Auto-update handler
+    def on_check_update():
+        latest, html = check_for_update()
+        if latest:
+            if messagebox.askyesno(
+                "Update available", f"NovaStream {latest} is available. Update now?"
+            ):
+                try:
+                    perform_update()
+                    messagebox.showinfo(
+                        "Update", "Update successful. Please restart NovaStream."
+                    )
+                except Exception as e:
+                    messagebox.showerror("Update error", f"Failed to update: {e}")
+        else:
+            messagebox.showinfo(
+                "No updates", f"You are running the latest version ({CURRENT_VERSION})."
+            )
+    # Help menu (with update)
     help_menu = tk.Menu(menubar, tearoff=False)
+    help_menu.add_command(label="Check for Updates", command=on_check_update)
+    help_menu.add_separator()
     help_menu.add_command(label="About", command=lambda: messagebox.showinfo(
-        "About", "NovaStream v1.0\n© 2025 asa"))
+        "About", f"NovaStream {CURRENT_VERSION}\n© 2025 asa"))
     menubar.add_cascade(label="Help", menu=help_menu)
     root.config(menu=menubar)
 
-    # Header with logo
+    # Header
     header = ttk.Frame(root, padding=(10,10))
     header.grid(row=0, column=0, sticky="EW")
-    try:
-        logo = tk.PhotoImage(file='icon.png')
-        ttk.Label(header, image=logo).grid(row=0, column=0)
-        header.image = logo
-    except Exception as e:
-        logging.warning("Failed to load logo image: %s", e)
-        ttk.Label(header, text="NovaStream", font=("Segoe UI", 16)).grid(row=0, column=0)
+    ttk.Label(header, text="NovaStream", font=("Segoe UI", 16)).grid(row=0, column=0)
 
     # Main content frame
     main_frame = ttk.Frame(root, padding=(20,10))
@@ -138,15 +156,18 @@ def main():
     btn_qf = ttk.Frame(queue_frame)
     btn_qf.pack(fill="x", pady=(5,0))
 
-    # Load persisted queue
-    try:
-        with open(queue_file, 'r') as f:
-            saved = json.load(f)
+    # Load persisted queue if exists
+    if os.path.exists(queue_file):
+        try:
+            with open(queue_file, 'r') as f:
+                saved = json.load(f)
             for cfg in saved:
                 drama_queue.append(cfg)
-                queue_listbox.insert(tk.END, cfg['name'] or cfg['url'])
-    except Exception as e:
-        logging.warning("Failed to load drama queue from file: %s", e)
+                queue_listbox.insert(tk.END, cfg.get('name') or cfg.get('url'))
+        except json.JSONDecodeError as e:
+            logging.warning(f"Corrupted drama queue file '{queue_file}': {e}")
+        except Exception as e:
+            logging.warning(f"Failed to load drama queue: {e}")
     def save_queue():
         os.makedirs(os.path.dirname(queue_file), exist_ok=True)
         with open(queue_file, 'w') as f:
