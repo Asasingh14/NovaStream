@@ -55,6 +55,73 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  snyk-security-scan:
+    name: Snyk Security Scan
+    runs-on: ubuntu-latest
+    needs: run-tests-and-coverage
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+  license-compliance:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+    needs: run-tests-and-coverage
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Python dependencies licenses
+        uses: apache/skywalking-eyes@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fix License Headers
+        run: |
+          license-eye -v header fix
+
+      - name: Check License Headers
+        run: |
+          license-eye -v header check
+
+  binary-security-scan:
+    name: Binary Security Scan
+    needs: [build-macos-binary, build-windows-binary, build-linux-binary]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: 'artifacts/'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+  codefactor-analysis:
+    name: CodeFactor Analysis
+    runs-on: ubuntu-latest
+    needs: run-tests-and-coverage
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: CodeFactor Analysis
+        uses: codefactor/codefactor-action@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          mode: upload
+
   codeql-analysis:
     if: ${{ !github.event.repository.private }}
     name: Static Code Analysis (CodeQL)
