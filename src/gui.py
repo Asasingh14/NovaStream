@@ -27,6 +27,8 @@ def _queue_file_path():
 def main():
     root = tk.Tk()
     root.title("NovaStream")
+    root.geometry("900x560")
+    root.minsize(760, 480)
 
     try:
         icon_path = resources.files("src").joinpath("assets/icon.png")
@@ -51,8 +53,12 @@ def main():
     header.grid(row=0, column=0, sticky="EW")
     try:
         logo_path = resources.files("src").joinpath("assets/icon.png")
-        logo = tk.PhotoImage(file=str(logo_path))
+        logo_source = tk.PhotoImage(file=str(logo_path))
+        largest_edge = max(logo_source.width(), logo_source.height())
+        subsample = max(1, (largest_edge + 63) // 64)
+        logo = logo_source.subsample(subsample, subsample)
         ttk.Label(header, image=logo).grid(row=0, column=0)
+        header.logo_source = logo_source
         header.image = logo
     except (AttributeError, FileNotFoundError, tk.TclError) as e:
         logging.warning("Failed to load logo image: %s", e)
@@ -345,19 +351,23 @@ def main():
         progress_win.transient(root)
         progress_win.grab_set()
 
-        pool_holder = {"pool": None}
         control = DownloadControl()
         finished = {"value": False}
         cancel_button = ttk.Button(progress_win, text="Cancel")
         cancel_button.pack(pady=(0, 10))
 
         def request_cancel():
-            control.cancel()
+            if control.cancelled.is_set():
+                return
+            control.cancelled.set()
             cancel_button.config(text="Cancelling...", state="disabled")
             progress_status.config(text="Cancelling; completed files will be kept...")
-            pool = pool_holder["pool"]
-            if pool:
-                pool.terminate()
+
+            def stop_workers():
+                control.cancel()
+
+            Thread(target=stop_workers, daemon=True).start()
+            finish(cancelled=True)
 
         cancel_button.config(command=request_cancel)
         progress_win.protocol("WM_DELETE_WINDOW", request_cancel)
@@ -385,6 +395,19 @@ def main():
             elif error_message:
                 status_bar.config(text="Failed")
                 messagebox.showerror("Download Error", error_message)
+            elif failures:
+                if successes:
+                    status_bar.config(text="Completed with errors")
+                    messagebox.showwarning(
+                        "Download Incomplete",
+                        f"{successes} succeeded and {failures} failed. Files saved in:\n{drama_dir}",
+                    )
+                else:
+                    status_bar.config(text="Failed")
+                    messagebox.showerror(
+                        "Download Failed",
+                        f"No episodes downloaded successfully; {failures} failed.",
+                    )
             else:
                 status_bar.config(text="Completed")
                 if target_index is None:
@@ -397,6 +420,13 @@ def main():
                 on_complete(successful, cancelled)
             elif not job_state["queue_active"]:
                 set_controls_enabled(True)
+
+        def post_progress(callback):
+            def guarded_update():
+                if not finished["value"]:
+                    callback()
+
+            post_ui(guarded_update)
 
         def worker():
             pool = None
@@ -413,7 +443,7 @@ def main():
 
                 delay_seconds = max(0, int(config.get("delay", 0))) * 60
                 if delay_seconds:
-                    post_ui(
+                    post_progress(
                         lambda: progress_status.config(
                             text=f"Scheduled to start in {delay_seconds // 60} minute(s)"
                         )
@@ -426,7 +456,10 @@ def main():
                 if match:
                     episodes = [(int(match.group(1)), url)]
                 else:
-                    episodes_found = find_episode_links(url)
+                    episodes_found = find_episode_links(url, control=control)
+                    if control.cancelled.is_set():
+                        post_ui(lambda: finish(cancelled=True, drama_dir=drama_dir))
+                        return
                     if not episodes_found and config.get("download_all"):
                         total = ask_total_episodes()
                         if not total:
@@ -453,14 +486,13 @@ def main():
                     return
 
                 total = len(episodes)
-                post_ui(progress.stop)
-                post_ui(lambda: progress.config(mode="determinate", maximum=total, value=0))
-                post_ui(lambda: progress_status.config(text=f"Downloading 0/{total} episodes"))
+                post_progress(progress.stop)
+                post_progress(lambda: progress.config(mode="determinate", maximum=total, value=0))
+                post_progress(lambda: progress_status.config(text=f"Downloading 0/{total} episodes"))
 
                 workers = max(1, min(max_workers, int(config.get("workers", 4))))
                 retries = max(0, int(config.get("retries", 3)))
                 pool = ThreadPool(workers)
-                pool_holder["pool"] = pool
                 completed = successes = failures = 0
                 arguments = [
                     (drama_name, number, episode_url, drama_dir, 0, retries, control)
@@ -472,7 +504,7 @@ def main():
                     completed += 1
                     successes += int(bool(result))
                     failures += int(not result)
-                    post_ui(
+                    post_progress(
                         lambda done=completed: (
                             progress_status.config(text=f"Downloaded {done}/{total} episodes"),
                             progress.config(value=done),
@@ -496,7 +528,7 @@ def main():
                         pool.terminate()
                     else:
                         pool.close()
-                    pool.join()
+                        pool.join()
 
         Thread(target=worker, daemon=True).start()
 

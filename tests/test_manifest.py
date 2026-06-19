@@ -1,4 +1,5 @@
 import time
+from threading import Event
 import pytest
 from src.manifest import get_manifest_urls
 
@@ -74,3 +75,42 @@ def test_get_manifest_urls_closes_driver_when_navigation_fails(monkeypatch):
         get_manifest_urls('http://test', wait=0)
 
     assert closed['value'] is True
+
+
+def test_get_manifest_urls_returns_before_start_when_cancelled(monkeypatch):
+    control = type('Control', (), {'cancelled': Event()})()
+    control.cancelled.set()
+    monkeypatch.setattr(
+        'src.manifest.get_driver',
+        lambda: pytest.fail('driver should not start after cancellation'),
+    )
+
+    assert get_manifest_urls('http://test', control=control) == set()
+
+
+def test_get_manifest_urls_suppresses_shutdown_errors_after_cancel(monkeypatch):
+    cancelled = Event()
+    closed = {'value': False}
+
+    class Control:
+        def __init__(self):
+            self.cancelled = cancelled
+
+        def register_driver(self, _driver):
+            pass
+
+        def unregister_driver(self, _driver):
+            pass
+
+    class CancellingDriver(DummyDriver):
+        def set_page_load_timeout(self, _timeout):
+            cancelled.set()
+            raise RuntimeError('driver closed during cancellation')
+
+        def quit(self):
+            closed['value'] = True
+
+    monkeypatch.setattr('src.manifest.get_driver', lambda: CancellingDriver())
+
+    assert get_manifest_urls('http://test', control=Control()) == set()
+    assert closed['value'] is False

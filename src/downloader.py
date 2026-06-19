@@ -19,6 +19,7 @@ from tkinter import messagebox, simpledialog
 
 from src.manifest import get_manifest_urls
 from src.scraper import find_episode_links
+from src.driver import close_driver
 from src.utils import banner, expand_ranges
 
 # initialize colorama
@@ -47,22 +48,38 @@ class DownloadControl:
     def __init__(self):
         self.cancelled = threading.Event()
         self._processes = set()
+        self._drivers = set()
         self._lock = threading.Lock()
 
     def register(self, proc):
         with self._lock:
             self._processes.add(proc)
+        if self.cancelled.is_set():
+            _terminate_process(proc)
 
     def unregister(self, proc):
         with self._lock:
             self._processes.discard(proc)
 
+    def register_driver(self, driver):
+        with self._lock:
+            self._drivers.add(driver)
+        if self.cancelled.is_set():
+            _close_driver(driver)
+
+    def unregister_driver(self, driver):
+        with self._lock:
+            self._drivers.discard(driver)
+
     def cancel(self):
         self.cancelled.set()
         with self._lock:
             processes = list(self._processes)
+            drivers = list(self._drivers)
         for proc in processes:
-            _terminate_process(proc)
+            threading.Thread(target=_terminate_process, args=(proc,), daemon=True).start()
+        for driver in drivers:
+            threading.Thread(target=_close_driver, args=(driver,), daemon=True).start()
 
 
 def _register_process(proc, control=None):
@@ -100,6 +117,26 @@ def _terminate_process(proc):
             proc.terminate()
         except (AttributeError, OSError, ProcessLookupError):
             pass
+
+    try:
+        proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        try:
+            if os.name == "nt":
+                proc.kill()
+            else:
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except (AttributeError, OSError, ProcessLookupError):
+            try:
+                proc.kill()
+            except (AttributeError, OSError, ProcessLookupError):
+                pass
+    except AttributeError:
+        pass
+
+
+def _close_driver(driver):
+    close_driver(driver)
 
 
 def _run_ffmpeg(cmd, control=None):
@@ -178,7 +215,7 @@ def download_episode(args):
     logging.info(f"Episode {num}: starting download from {url}")
     # Fetch episode page to extract title for filename
     try:
-        resp = requests.get(url, timeout=10)
+        resp = requests.get(url, timeout=(3, 5))
         resp.raise_for_status()
         page_soup = BeautifulSoup(resp.text, 'html.parser')
     except requests.RequestException as e:
@@ -187,16 +224,27 @@ def download_episode(args):
     else:
         raw_title = page_soup.title.get_text(" ", strip=True) if page_soup.title else f"Episode {num}"
         raw_title = raw_title or f"Episode {num}"
+    if control and control.cancelled.is_set():
+        return False
     # Clean title text for filename (allow spaces only)
     title_clean = sanitize_path_component(raw_title, fallback=f"Episode {num}")
     # get manifest URL(s)
     try:
-        manifests = get_manifest_urls(url)
+        manifests = (
+            get_manifest_urls(url, control=control)
+            if control
+            else get_manifest_urls(url)
+        )
     except Exception as e:
-        logging.error(f"Episode {num}: manifest retrieval error: {e}")
-        print(Fore.RED + f"[#{num}] Manifest retrieval error: {e}")
+        if control and control.cancelled.is_set():
+            return False
+        error_message = getattr(e, "msg", str(e)).splitlines()[0]
+        logging.error("Episode %s: manifest retrieval error: %s", num, error_message)
+        print(Fore.RED + f"[#{num}] Manifest retrieval error: {error_message}")
         return False
     if not manifests:
+        if control and control.cancelled.is_set():
+            return False
         print(Fore.RED + f"[#{num}] No manifest found for {url}")
         return False
     # Prefer a master playlist, then choose deterministically.

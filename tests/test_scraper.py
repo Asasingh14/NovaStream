@@ -1,6 +1,7 @@
 from src.scraper import find_episode_links
 import logging
 import requests
+from threading import Event
 
 class DummyResp:
     def __init__(self, text):
@@ -76,3 +77,14 @@ def test_find_episode_links_closes_driver_after_failure(monkeypatch):
 
     assert find_episode_links('https://none.test') == []
     assert closed['value'] is True
+
+
+def test_find_episode_links_returns_before_request_when_cancelled(monkeypatch):
+    control = type('Control', (), {'cancelled': Event()})()
+    control.cancelled.set()
+    monkeypatch.setattr(
+        'src.scraper.requests.get',
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError('request should not run')),
+    )
+
+    assert find_episode_links('https://none.test', control=control) == []

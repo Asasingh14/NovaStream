@@ -3,6 +3,7 @@ import src.downloader as dlmod
 import pytest
 import logging
 from pathlib import Path
+from threading import Event
 
 class DummyRes:
     def __init__(self, code):
@@ -333,17 +334,63 @@ def test_download_episode_removes_partial_after_failure(tmp_path, monkeypatch):
     assert not list(tmp_path.glob('*.part.mp4'))
 
 
+def test_download_episode_cancelled_manifest_is_silent(tmp_path, capsys, monkeypatch):
+    control = dlmod.DownloadControl()
+
+    def cancel_during_manifest(_url, control):
+        control.cancelled.set()
+        return set()
+
+    monkeypatch.setattr(dlmod, 'get_manifest_urls', cancel_during_manifest)
+    monkeypatch.setattr(
+        dlmod.requests,
+        'get',
+        lambda *args, **kwargs: (_ for _ in ()).throw(dlmod.requests.RequestException()),
+    )
+
+    result = download_episode(('Show', 11, 'http://x', str(tmp_path), 0, 0, control))
+
+    assert result is False
+    assert 'No manifest found' not in capsys.readouterr().out
+
+
 def test_download_control_only_terminates_owned_processes(monkeypatch):
     control = dlmod.DownloadControl()
     owned_process = object()
     terminated = []
-    monkeypatch.setattr(dlmod, '_terminate_process', terminated.append)
+    terminated_event = Event()
+
+    def terminate(process):
+        terminated.append(process)
+        terminated_event.set()
+
+    monkeypatch.setattr(dlmod, '_terminate_process', terminate)
     control.register(owned_process)
 
     control.cancel()
 
     assert control.cancelled.is_set()
+    assert terminated_event.wait(1)
     assert terminated == [owned_process]
+
+
+def test_download_control_closes_owned_browser(monkeypatch):
+    control = dlmod.DownloadControl()
+    closed = []
+    closed_event = Event()
+
+    class Browser:
+        def quit(self):
+            closed.append(True)
+            closed_event.set()
+
+    browser = Browser()
+    control.register_driver(browser)
+
+    control.cancel()
+
+    assert closed_event.wait(1)
+    assert closed == [True]
 
 
 def test_run_ffmpeg_uses_windows_process_group(monkeypatch):

@@ -8,8 +8,9 @@ class DummyOptions:
         self.args.append(arg)
 
 class DummyService:
-    def __init__(self, path):
+    def __init__(self, path, **kwargs):
         self.path = path
+        self.kwargs = kwargs
 
 class DummyWebdriver:
     def __init__(self, service=None, options=None):
@@ -39,4 +40,6 @@ def test_get_driver_configures_headless_and_gpu():
     driver = get_driver()
     # Options were provided to DummyWebdriver
     assert '--headless' in driver.options.args
-    assert '--disable-gpu' in driver.options.args 
+    assert '--disable-gpu' in driver.options.args
+    assert driver.options.page_load_strategy == 'none'
+    assert driver.service.kwargs['popen_kw']['start_new_session'] is True
