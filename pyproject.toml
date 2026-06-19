@@ -7,7 +7,7 @@ name = "novastream"
 version = "1.0.0"
 description = "HLS series downloader"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [ { name = "d4rkw3bd31ty" } ]
 dependencies = [
@@ -19,12 +19,14 @@ dependencies = [
     "tqdm",
     "art",
     "colorama",
-    "urlgrabber",
-    "blinker"
+    "blinker<1.5"
 ]
 
 [project.scripts]
 novastream = "src.gui:main"
 
+[tool.setuptools]
+packages = ["src"]
+
 [tool.setuptools.package-data]
-"src" = ["assets/icon.png"] 
+"src" = ["assets/icon.png", "assets/icon.ico", "assets/icon.icns"]

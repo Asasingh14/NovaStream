@@ -2,6 +2,7 @@ from src.downloader import download_episode, run_download
 import src.downloader as dlmod
 import pytest
 import logging
+from pathlib import Path
 
 class DummyRes:
     def __init__(self, code):
@@ -10,6 +11,7 @@ class DummyRes:
 class DummyPopen:
     def __init__(self, *args, **kwargs):
         self.returncode = 0
+        Path(args[0][-1]).write_bytes(b'media')
     def communicate(self):
         return (b'', b'')
 
@@ -58,6 +60,8 @@ def test_download_episode_retry_success(tmp_path, capsys, monkeypatch):
             idx = call['count']
             call['count'] += 1
             self.returncode = 1 if idx == 0 else 0
+            if self.returncode == 0:
+                Path(args[0][-1]).write_bytes(b'media')
         def communicate(self):
             return (b'', b'error' if self.returncode != 0 else b'')
     monkeypatch.setattr(dlmod.subprocess, 'Popen', DummyPopenSeq)
@@ -99,6 +103,7 @@ def test_download_episode_title_extract(tmp_path, capsys, monkeypatch):
     class DummyPopen2:
         def __init__(self, *args, **kwargs):
             self.returncode = 0
+            Path(args[0][-1]).write_bytes(b'media')
         def communicate(self):
             return (b'', b'')
     monkeypatch.setattr(dlmod.subprocess, 'Popen', DummyPopen2)
@@ -148,7 +153,7 @@ def test_run_download_single_episode(tmp_path, monkeypatch):
         def __init__(self, workers): pass
         def __enter__(self): return self
         def __exit__(self, exc_type, exc, tb): pass
-        def imap_unordered(self, func, args_list): return [None for _ in args_list]
+        def imap_unordered(self, func, args_list): return [True for _ in args_list]
     monkeypatch.setattr(dlmod.mp, 'Pool', DummyPool)
     # Stub tqdm to no-op
     monkeypatch.setattr(dlmod, 'tqdm', lambda it, total=None, desc=None: it)
@@ -159,10 +164,11 @@ def test_run_download_single_episode(tmp_path, monkeypatch):
     monkeypatch.setattr(dlmod.tk, 'Tk', DummyTk)
     info = {}
     monkeypatch.setattr(dlmod.messagebox, 'showinfo', lambda title, msg: info.update({'msg': msg}))
-    run_download(url, name_input, str(tmp_path), download_all=False, episode_list=[], workers=1)
-    # Expect one file saved
-    assert '1 files saved' in info.get('msg', '')
+    summary = run_download(url, name_input, str(tmp_path), download_all=False, episode_list=[], workers=1)
+    assert '1 succeeded, 0 failed' in info.get('msg', '')
     assert str(tmp_path.joinpath('My_Show')) in info.get('msg', '')
+    assert summary.succeeded == 1
+    assert summary.successful is True
 
 def test_run_download_no_episodes_error(tmp_path, monkeypatch):
     # No episodes found and no selection provided
@@ -207,13 +213,13 @@ def test_run_download_download_all_with_input(tmp_path, monkeypatch):
         def __init__(self, w): pass
         def __enter__(self): return self
         def __exit__(self, a,b,c): pass
-        def imap_unordered(self, func, args_list): return [None]*len(args_list)
+        def imap_unordered(self, func, args_list): return [True]*len(args_list)
     monkeypatch.setattr(dlmod.mp, 'Pool', DummyPool2)
     monkeypatch.setattr(dlmod, 'tqdm', lambda it, total=None, desc=None: it)
     info2 = {}
     monkeypatch.setattr(dlmod.messagebox, 'showinfo', lambda title, msg: info2.update({'msg': msg}))
     run_download(url, None, str(tmp_path), download_all=True, episode_list=[], workers=1)
-    assert '2 files saved' in info2.get('msg', '')
+    assert '2 succeeded, 0 failed' in info2.get('msg', '')
     assert str(tmp_path.joinpath('example_com')) in info2.get('msg', '')
 
 def test_run_download_with_episode_list(tmp_path, monkeypatch):
@@ -232,13 +238,13 @@ def test_run_download_with_episode_list(tmp_path, monkeypatch):
         def __init__(self, w): pass
         def __enter__(self): return self
         def __exit__(self, a,b,c): pass
-        def imap_unordered(self, func, args_list): return [None]*len(args_list)
+        def imap_unordered(self, func, args_list): return [True]*len(args_list)
     monkeypatch.setattr(dlmod.mp, 'Pool', DummyPool3)
     monkeypatch.setattr(dlmod, 'tqdm', lambda it, total=None, desc=None: it)
     info3 = {}
     monkeypatch.setattr(dlmod.messagebox, 'showinfo', lambda title, msg: info3.update({'msg': msg}))
     run_download(url, None, str(tmp_path), download_all=False, episode_list=['1-3'], workers=1)
-    assert '2 files saved' in info3.get('msg', '')
+    assert '2 succeeded, 0 failed' in info3.get('msg', '')
     assert str(tmp_path.joinpath('example_com')) in info3.get('msg', '')
 
 def test_download_episode_failure_no_retries(tmp_path, capsys, monkeypatch):
@@ -266,11 +272,110 @@ def test_download_episode_no_title(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(dlmod.requests, 'get', lambda *args, **kwargs: DummyResponse2(html))
     monkeypatch.setattr(dlmod, 'get_manifest_urls', lambda url: {'http://x/media.m3u8'})
     class DummyPopenOK2:
-        def __init__(self, *args, **kwargs): self.returncode = 0
+        def __init__(self, *args, **kwargs):
+            self.returncode = 0
+            Path(args[0][-1]).write_bytes(b'media')
         def communicate(self): return (b'', b'')
     monkeypatch.setattr(dlmod.subprocess, 'Popen', DummyPopenOK2)
     result = download_episode(('Show', 8, 'http://x', str(tmp_path)))
     captured = capsys.readouterr()
     assert result is True
     # Default title 'Episode 8' should appear in filename
-    assert 'Episode 08 - Episode 8.mp4' in captured.out 
+    assert 'Episode 08 - Episode 8.mp4' in captured.out
+
+
+def test_download_episode_uses_partial_then_atomic_rename(tmp_path, monkeypatch):
+    monkeypatch.setattr(dlmod, 'get_manifest_urls', lambda url: {'http://x/media.m3u8'})
+    monkeypatch.setattr(
+        dlmod.requests,
+        'get',
+        lambda *args, **kwargs: (_ for _ in ()).throw(dlmod.requests.RequestException()),
+    )
+    commands = []
+
+    class RecordingPopen:
+        def __init__(self, cmd, **kwargs):
+            commands.append((cmd, kwargs))
+            self.returncode = 0
+            Path(cmd[-1]).write_bytes(b'complete media')
+
+        def communicate(self):
+            return (b'', b'')
+
+    monkeypatch.setattr(dlmod.subprocess, 'Popen', RecordingPopen)
+
+    assert download_episode(('Show', 9, 'http://x', str(tmp_path))) is True
+    assert commands[0][0][-1].endswith('.part.mp4')
+    assert commands[0][1].get('start_new_session') is True
+    assert not list(tmp_path.glob('*.part.mp4'))
+    assert list(tmp_path.glob('*.mp4'))
+
+
+def test_download_episode_removes_partial_after_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr(dlmod, 'get_manifest_urls', lambda url: {'http://x/media.m3u8'})
+    monkeypatch.setattr(
+        dlmod.requests,
+        'get',
+        lambda *args, **kwargs: (_ for _ in ()).throw(dlmod.requests.RequestException()),
+    )
+
+    class PartialFailurePopen:
+        def __init__(self, cmd, **kwargs):
+            self.returncode = 1
+            Path(cmd[-1]).write_bytes(b'partial media')
+
+        def communicate(self):
+            return (b'', b'failed')
+
+    monkeypatch.setattr(dlmod.subprocess, 'Popen', PartialFailurePopen)
+
+    assert download_episode(('Show', 10, 'http://x', str(tmp_path))) is False
+    assert not list(tmp_path.glob('*.part.mp4'))
+
+
+def test_download_control_only_terminates_owned_processes(monkeypatch):
+    control = dlmod.DownloadControl()
+    owned_process = object()
+    terminated = []
+    monkeypatch.setattr(dlmod, '_terminate_process', terminated.append)
+    control.register(owned_process)
+
+    control.cancel()
+
+    assert control.cancelled.is_set()
+    assert terminated == [owned_process]
+
+
+def test_run_ffmpeg_uses_windows_process_group(monkeypatch):
+    captured = {}
+
+    class WindowsPopen:
+        returncode = 0
+
+        def __init__(self, cmd, **kwargs):
+            captured.update(kwargs)
+
+        def communicate(self):
+            return (b'', b'')
+
+    monkeypatch.setattr(dlmod.os, 'name', 'nt')
+    monkeypatch.setattr(dlmod.subprocess, 'CREATE_NEW_PROCESS_GROUP', 512, raising=False)
+    monkeypatch.setattr(dlmod.subprocess, 'Popen', WindowsPopen)
+
+    returncode, _stderr = dlmod._run_ffmpeg(['ffmpeg'])
+
+    assert returncode == 0
+    assert captured['creationflags'] == 512
+    assert 'start_new_session' not in captured
+
+
+@pytest.mark.parametrize(
+    ('value', 'expected'),
+    [
+        ('../unsafe/show', 'unsafe show'),
+        ('CON', '_CON'),
+        ('เรื่องโปรด!', 'เรื่องโปรด'),
+    ],
+)
+def test_sanitize_path_component(value, expected):
+    assert dlmod.sanitize_path_component(value) == expected

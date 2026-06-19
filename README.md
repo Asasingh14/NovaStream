@@ -2,7 +2,7 @@
 
 [![Build & Release](https://github.com/Asasingh14/NovaStream/actions/workflows/release-build.yml/badge.svg)](https://github.com/Asasingh14/NovaStream/actions/workflows/release-build.yml)
 [![codecov](https://codecov.io/gh/Asasingh14/NovaStream/branch/main/graph/badge.svg?token=8PBXU7ND63)](https://codecov.io/gh/Asasingh14/NovaStream)
-[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
+[![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Last Commit](https://img.shields.io/github/last-commit/Asasingh14/NovaStream)](https://github.com/Asasingh14/NovaStream/commits/main)
 [![Release](https://img.shields.io/github/v/release/Asasingh14/NovaStream)](https://github.com/Asasingh14/NovaStream/releases)
@@ -22,9 +22,9 @@
 - 🧠 Programmatic API for developers and automation  
 - 🔄 Range-based or full-season episode selection  
 - 💡 Smart file naming: `Drama Name - Episode XX - Title.mp4`  
-- 🚀 Multi-threaded downloading with resume support  
-- 🧹 Automatic cleanup on interruption or cancel  
-- 🔒 Works offline once streaming URLs are obtained  
+- 🚀 Multi-threaded downloading with safe partial-file handling
+- 🧹 Per-job cancellation that keeps completed files
+- ⏰ Delayed-start scheduling and persistent download queues
 
 ---
 
@@ -85,6 +85,7 @@ Then:
 ### Programmatic API
 
 Use the `run_download` function to programmatically download streams. For a full example script, see [examples/basic_usage.py](examples/basic_usage.py).
+The function returns a `DownloadSummary` with total, succeeded, and failed counts.
 
 ### Example Script
 
@@ -104,8 +105,9 @@ python examples/basic_usage.py
 ## 🛠️ Development
 
 ### Requirements
-- Python 3.8+  
-- ffmpeg installed and in system PATH  
+- Python 3.9+
+- ffmpeg installed and in system PATH
+- Google Chrome or Chromium installed
 
 ### Setup Dev Environment
 ```bash
@@ -144,8 +146,6 @@ We welcome contributions! Follow these steps:
 4. Push: `git push origin feature/awesome`  
 5. Open a PR  
 
-See CONTRIBUTING.md for detailed guidelines.
-
 ---
 
 ## 📄 License
@@ -161,7 +161,7 @@ This project is licensed under the MIT License. See LICENSE for details.
 ---
 
 NovaStream uses GitHub Actions:
-- Test Workflow: Runs on every push & PR  
+- Test Workflow: Runs on branch and tag pushes
 - pytest with coverage  
 - Uploads to Codecov  
 - Build Workflow:  
@@ -179,7 +179,9 @@ NovaStream uses GitHub Actions:
 | ✅ Completed  | Programmatic download interface                                 |
 | ✅ Completed  | Basic GUI for stream selection                                  |
 | ✅ Completed  | Multi-threaded engine                                           |
-| ✅ Completed  | Auto-update mechanism via GitHub Releases                       |
+| ✅ Completed  | Safe partial downloads and isolated cancellation                |
+| ✅ Completed  | Persistent queue and delayed-start scheduling                    |
+| ⏳ Planned     | Auto-update mechanism via GitHub Releases                       |
 | ⏳ Planned     | Subtitle (.vtt) merging                                         |
 | ⏳ Planned     | Full settings GUI                                               |
 | 🤖 Planned    | Discord bot integration (keyword extraction & API-driven download) |

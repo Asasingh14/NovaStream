@@ -36,12 +36,18 @@ def find_episode_links(homepage_url):
 
     # If none found, use Selenium to render JS
     if not links:
+        driver = None
         try:
             driver = get_driver()
             driver.get(homepage_url)
-            time.sleep(5)
-            dyn_soup = BeautifulSoup(driver.page_source, "html.parser")
-            driver.quit()
+            deadline = time.monotonic() + 5
+            page_source = driver.page_source
+            while not re.search(r"(?:ep(?:isode)?[-_/]?)(\d+)", page_source, re.IGNORECASE):
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(0.2)
+                page_source = driver.page_source
+            dyn_soup = BeautifulSoup(page_source, "html.parser")
             for a in dyn_soup.find_all("a", href=True):
                 # match both 'ep' and 'episode' prefixes
                 m = re.search(r"(?:ep(?:isode)?[-_/]?)(\d+)", a["href"], re.IGNORECASE)
@@ -51,7 +57,13 @@ def find_episode_links(homepage_url):
                     links.append((num, full))
         except Exception as e:
             logging.warning(f"Selenium fallback scraping failed: {e}")
+        finally:
+            if driver is not None:
+                try:
+                    driver.quit()
+                except Exception as e:
+                    logging.warning("Failed to close Selenium driver: %s", e)
 
     # Deduplicate and sort by episode number
     unique = {num: url for num, url in links}
-    return sorted(unique.items(), key=lambda x: x[0]) 
+    return sorted(unique.items(), key=lambda x: x[0])

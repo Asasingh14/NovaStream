@@ -58,4 +58,21 @@ def test_find_episode_links_static_request_exception(monkeypatch, caplog):
     # warning logged about fetch failure
     assert any('Failed to fetch homepage' in rec.message for rec in caplog.records)
     # fallback found link
-    assert links == [(20, 'https://error.test/series/ep-20')] 
+    assert links == [(20, 'https://error.test/series/ep-20')]
+
+
+def test_find_episode_links_closes_driver_after_failure(monkeypatch):
+    monkeypatch.setattr('src.scraper.requests.get', lambda *args, **kwargs: DummyResp(''))
+    closed = {'value': False}
+
+    class FailingDriver:
+        def get(self, _url):
+            raise RuntimeError('navigation failed')
+
+        def quit(self):
+            closed['value'] = True
+
+    monkeypatch.setattr('src.scraper.get_driver', lambda: FailingDriver())
+
+    assert find_episode_links('https://none.test') == []
+    assert closed['value'] is True

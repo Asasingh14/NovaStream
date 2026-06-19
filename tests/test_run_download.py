@@ -9,7 +9,7 @@ class DummyPool:
         # Call the function for each argument
         for arg in args:
             func(arg)
-            yield None
+            yield True
     def __enter__(self):
         return self
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -50,4 +50,4 @@ def test_run_download_static_url(monkeypatch, tmp_path, capsys):
     drama_dir = os.path.join(str(tmp_path), 'MyShow')
     assert ('MyShow', 3, url, drama_dir) in calls
     # showinfo should have been called
-    assert any(isinstance(call, str) and call.startswith('info:') for call in calls) 
+    assert any(isinstance(call, str) and call.startswith('info:') for call in calls)

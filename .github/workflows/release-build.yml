@@ -33,6 +33,11 @@ jobs:
 
       - run: pytest --cov --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
 
+      - name: Build and inspect Python package
+        run: |
+          python -m build
+          python -c "import glob, zipfile; names=zipfile.ZipFile(glob.glob('dist/*.whl')[0]).namelist(); assert 'src/gui.py' in names; assert 'src/assets/icon.png' in names"
+
       - uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -92,9 +97,9 @@ jobs:
         shell: cmd
         run: |
           pyinstaller --clean --windowed --onefile --name NovaStream${{ matrix.ext }} ^
-            --exclude-module seleniumwire ^
-            --exclude-module selenium ^
-            --exclude-module webdriver_manager ^
+            --collect-all seleniumwire ^
+            --collect-all webdriver_manager ^
+            --add-data "src\\assets;src\\assets" ^
             --icon "${{ matrix.icon }}" ^
             src\\gui.py
 
@@ -102,9 +107,9 @@ jobs:
         if: matrix.platform == 'macos'
         run: |
           pyinstaller --clean --windowed --name NovaStream \
-            --exclude-module seleniumwire \
-            --exclude-module selenium \
-            --exclude-module webdriver_manager \
+            --collect-all seleniumwire \
+            --collect-all webdriver_manager \
+            --add-data "src/assets:src/assets" \
             --icon "${{ matrix.icon }}" \
             src/gui.py
 
@@ -112,9 +117,9 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           pyinstaller --clean --strip --windowed --onefile --name NovaStream${{ matrix.ext }} \
-            --exclude-module seleniumwire \
-            --exclude-module selenium \
-            --exclude-module webdriver_manager \
+            --collect-all seleniumwire \
+            --collect-all webdriver_manager \
+            --add-data "src/assets:src/assets" \
             --icon "${{ matrix.icon }}" \
             src/gui.py
 
